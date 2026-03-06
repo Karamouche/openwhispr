@@ -160,7 +160,7 @@
       "requiredForApp": "Required for OpenWhispr to work",
       "microphoneRequired": "Microphone access required",
       "screenRecordingTitle": "Screen Recording",
-      "screenRecordingDescription": "Needed to capture meeting audio. You can enable this later in Settings.",
+      "screenRecordingDescription": "Needed to capture meeting audio. You can enable this later in System Settings.",
       "optional": "Optional"
     },
     "transcription": {
@@ -1219,6 +1219,9 @@
         "rowDescription": "Fix issues after reinstalling or rebuilding the app by removing and re-adding OpenWhispr in System Settings",
         "title": "Reset Accessibility Permissions"
       },
+      "optional": "Optional",
+      "screenRecordingTitle": "Screen Recording",
+      "screenRecordingDescription": "Required to capture meeting audio from other apps",
       "test": "Test",
       "testAndGrant": "Test & Grant",
       "title": "Permissions",

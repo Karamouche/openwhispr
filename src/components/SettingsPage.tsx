@@ -38,6 +38,7 @@ import { useDialogs } from "../hooks/useDialogs";
 import { useAgentName } from "../utils/agentName";
 import { useWhisper } from "../hooks/useWhisper";
 import { usePermissions } from "../hooks/usePermissions";
+import { useScreenRecordingPermission } from "../hooks/useScreenRecordingPermission";
 import { useClipboard } from "../hooks/useClipboard";
 import { useUpdater } from "../hooks/useUpdater";
 
@@ -725,6 +726,7 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
 
   const whisperHook = useWhisper();
   const permissionsHook = usePermissions(showAlertDialog);
+  const screenRecording = useScreenRecordingPermission();
   useClipboard(showAlertDialog);
   const { agentName, setAgentName } = useAgentName();
   const [agentNameInput, setAgentNameInput] = useState(agentName);
@@ -2388,15 +2390,27 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
                 />
 
                 {platform === "darwin" && (
-                  <PermissionCard
-                    icon={Shield}
-                    title={t("settingsPage.permissions.accessibilityTitle")}
-                    description={t("settingsPage.permissions.accessibilityDescription")}
-                    granted={permissionsHook.accessibilityPermissionGranted}
-                    onRequest={permissionsHook.testAccessibilityPermission}
-                    buttonText={t("settingsPage.permissions.testAndGrant")}
-                    onOpenSettings={permissionsHook.openAccessibilitySettings}
-                  />
+                  <>
+                    <PermissionCard
+                      icon={Shield}
+                      title={t("settingsPage.permissions.accessibilityTitle")}
+                      description={t("settingsPage.permissions.accessibilityDescription")}
+                      granted={permissionsHook.accessibilityPermissionGranted}
+                      onRequest={permissionsHook.testAccessibilityPermission}
+                      buttonText={t("settingsPage.permissions.testAndGrant")}
+                      onOpenSettings={permissionsHook.openAccessibilitySettings}
+                    />
+                    <PermissionCard
+                      icon={Monitor}
+                      title={t("settingsPage.permissions.screenRecordingTitle")}
+                      description={t("settingsPage.permissions.screenRecordingDescription")}
+                      granted={screenRecording.granted}
+                      onRequest={screenRecording.request}
+                      buttonText={t("settingsPage.permissions.test")}
+                      onOpenSettings={screenRecording.openSettings}
+                      badge={t("settingsPage.permissions.optional")}
+                    />
+                  </>
                 )}
               </div>
 

@@ -26,6 +26,7 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useDialogs } from "../hooks/useDialogs";
 import { usePermissions } from "../hooks/usePermissions";
 import { useClipboard } from "../hooks/useClipboard";
+import { useScreenRecordingPermission } from "../hooks/useScreenRecordingPermission";
 import { useSettings } from "../hooks/useSettings";
 import LanguageSelector from "./ui/LanguageSelector";
 import AuthenticationStep from "./AuthenticationStep";
@@ -125,17 +126,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const permissionsHook = usePermissions(showAlertDialog);
   useClipboard(showAlertDialog); // Initialize clipboard hook for permission checks
 
-  const [screenRecordingGranted, setScreenRecordingGranted] = useState(false);
-
-  const requestScreenRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
-      stream.getTracks().forEach((t) => t.stop());
-      setScreenRecordingGranted(true);
-    } catch {
-      // User denied or dismissed — not blocking since this is optional
-    }
-  }, []);
+  const screenRecording = useScreenRecordingPermission();
 
   // For signed-in users, merge setup and permissions into one step
   const steps =
@@ -411,9 +402,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                         icon={Monitor}
                         title={t("onboarding.permissions.screenRecordingTitle")}
                         description={t("onboarding.permissions.screenRecordingDescription")}
-                        granted={screenRecordingGranted}
-                        onRequest={requestScreenRecording}
+                        granted={screenRecording.granted}
+                        onRequest={screenRecording.request}
                         buttonText={t("onboarding.permissions.grant")}
+                        onOpenSettings={screenRecording.openSettings}
                         badge={t("onboarding.permissions.optional")}
                       />
                     </>
@@ -565,9 +557,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     icon={Monitor}
                     title={t("onboarding.permissions.screenRecordingTitle")}
                     description={t("onboarding.permissions.screenRecordingDescription")}
-                    granted={screenRecordingGranted}
-                    onRequest={requestScreenRecording}
+                    granted={screenRecording.granted}
+                    onRequest={screenRecording.request}
                     buttonText={t("onboarding.permissions.grant")}
+                    onOpenSettings={screenRecording.openSettings}
                     badge={t("onboarding.permissions.optional")}
                   />
                 </>
