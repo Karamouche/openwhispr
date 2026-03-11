@@ -2979,9 +2979,7 @@ EOF`,
                       onClick={async () => {
                         try {
                           await checkForUpdates();
-                        } catch {
-                          // Silent failure — update status reflected in UI badges
-                        }
+                        } catch {}
                       }}
                       disabled={checkingForUpdates || updateStatus.isDevelopment}
                       variant="outline"

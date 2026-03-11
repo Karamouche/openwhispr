@@ -305,7 +305,6 @@ class UpdateManager {
 
   checkForUpdatesOnStartup() {
     if (process.env.NODE_ENV !== "development") {
-      // Initial check after 3 seconds
       setTimeout(() => {
         console.log("🔄 Checking for updates on startup...");
         autoUpdater.checkForUpdates().catch((err) => {
@@ -313,7 +312,6 @@ class UpdateManager {
         });
       }, 3000);
 
-      // Periodic check every 4 hours so long-running sessions still discover updates
       const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
       this.updateCheckInterval = setInterval(() => {
         console.log("🔄 Periodic update check...");
