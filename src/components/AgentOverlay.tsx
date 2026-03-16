@@ -8,7 +8,6 @@ import AudioManager from "../helpers/audioManager";
 import ReasoningService from "../services/ReasoningService";
 import { getSettings } from "../stores/settingsStore";
 import { getAgentSystemPrompt } from "../config/prompts";
-import { run as runAgentLoop } from "../services/AgentLoop";
 import { createToolRegistry } from "../services/tools";
 
 type AgentState =
@@ -101,7 +100,7 @@ export default function AgentOverlay() {
       const settings = getSettings();
 
       const isCloudAgent = settings.isSignedIn && settings.cloudAgentMode === "openwhispr";
-      const toolSupportedProviders = ["openai", "groq", "custom"];
+      const toolSupportedProviders = ["openai", "groq", "custom", "anthropic", "gemini"];
       const supportsTools =
         !isCloudAgent && toolSupportedProviders.includes(settings.agentProvider);
 
@@ -129,23 +128,26 @@ export default function AgentOverlay() {
         let fullContent = "";
 
         if (supportsTools && registry) {
-          await runAgentLoop({
-            messages: llmMessages,
-            model: settings.agentModel,
-            provider: settings.agentProvider,
-            systemPrompt,
-            tools: registry,
-            callbacks: {
-              onContentChunk: (text) => {
-                fullContent += text;
-                setMessages((prev) =>
-                  prev.map((m) => (m.id === assistantId ? { ...m, content: fullContent } : m))
-                );
-              },
-              onToolStart: (toolName) => {
+          const aiTools = registry.toAISDKFormat();
+          const stream = ReasoningService.processTextStreamingAI(
+            llmMessages,
+            settings.agentModel,
+            settings.agentProvider,
+            { systemPrompt },
+            aiTools
+          );
+
+          for await (const chunk of stream) {
+            if (chunk.type === "content") {
+              fullContent += chunk.text;
+              setMessages((prev) =>
+                prev.map((m) => (m.id === assistantId ? { ...m, content: fullContent } : m))
+              );
+            } else if (chunk.type === "tool_calls") {
+              for (const call of chunk.calls) {
                 setAgentState("tool-executing");
                 setToolStatus(
-                  t(`agentMode.tools.${toolName}Status`, { defaultValue: `Using ${toolName}...` })
+                  t(`agentMode.tools.${call.name}Status`, { defaultValue: `Using ${call.name}...` })
                 );
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -155,56 +157,46 @@ export default function AgentOverlay() {
                           toolCalls: [
                             ...(m.toolCalls || []),
                             {
-                              id: crypto.randomUUID(),
-                              name: toolName,
-                              arguments: "",
-                              status: "executing" as const,
+                              id: call.id,
+                              name: call.name,
+                              arguments: call.arguments,
+                              status: "completed" as const,
+                              result: "Done",
                             },
                           ],
                         }
                       : m
                   )
                 );
-              },
-              onToolComplete: (toolName, result) => {
                 setAgentState("streaming");
                 setToolStatus("");
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId
-                      ? {
-                          ...m,
-                          toolCalls: m.toolCalls?.map((tc) =>
-                            tc.name === toolName && tc.status === "executing"
-                              ? { ...tc, status: "completed" as const, result: result.displayText }
-                              : tc
-                          ),
-                        }
-                      : m
-                  )
-                );
-              },
-              onError: (error) => {
-                console.error("Agent loop error:", error);
-              },
-            },
-            maxIterations: 5,
+              }
+            }
+          }
+        } else if (isCloudAgent) {
+          const streamSource = ReasoningService.processTextStreamingCloud(llmMessages, {
+            systemPrompt,
           });
-        } else {
-          const streamSource = isCloudAgent
-            ? ReasoningService.processTextStreamingCloud(llmMessages, { systemPrompt })
-            : ReasoningService.processTextStreaming(
-                llmMessages,
-                settings.agentModel,
-                settings.agentProvider,
-                { systemPrompt }
-              );
-
           for await (const chunk of streamSource) {
             fullContent += chunk;
             setMessages((prev) =>
               prev.map((m) => (m.id === assistantId ? { ...m, content: fullContent } : m))
             );
+          }
+        } else {
+          const stream = ReasoningService.processTextStreamingAI(
+            llmMessages,
+            settings.agentModel,
+            settings.agentProvider,
+            { systemPrompt }
+          );
+          for await (const chunk of stream) {
+            if (chunk.type === "content") {
+              fullContent += chunk.text;
+              setMessages((prev) =>
+                prev.map((m) => (m.id === assistantId ? { ...m, content: fullContent } : m))
+              );
+            }
           }
         }
 

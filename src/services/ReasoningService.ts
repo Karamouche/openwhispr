@@ -7,19 +7,13 @@ import logger from "../utils/logger";
 import { isSecureEndpoint } from "../utils/urlUtils";
 import { withSessionRefresh } from "../lib/neonAuth";
 import { getSettings, isCloudReasoningMode } from "../stores/settingsStore";
+import { streamText, stepCountIs } from "ai";
+import { getAIModel } from "./ai/providers";
 
 export type AgentStreamChunk =
   | { type: "content"; text: string }
   | { type: "tool_calls"; calls: Array<{ id: string; name: string; arguments: string }> }
   | { type: "done"; finishReason?: string };
-
-interface ResolvedEndpoint {
-  endpoint: string;
-  apiKey: string;
-  isLocalProvider: boolean;
-  apiConfig: ReturnType<typeof getOpenAiApiConfig>;
-  useOldTokenParam: boolean;
-}
 
 class ReasoningService extends BaseReasoningService {
   private apiKeyCache: SecureCache<string>;
@@ -261,43 +255,6 @@ class ReasoningService extends BaseReasoningService {
     }
 
     return apiKey;
-  }
-
-  private async resolveEndpoint(model: string, provider: string): Promise<ResolvedEndpoint> {
-    const cloudProviders = ["openai", "groq", "gemini", "anthropic", "custom"];
-    const isLocalProvider = !cloudProviders.includes(provider);
-
-    let endpoint: string;
-    let apiKey = "";
-
-    if (isLocalProvider) {
-      const serverResult = await window.electronAPI.llamaServerStart(model);
-      if (!serverResult.success || !serverResult.port) {
-        throw new Error(serverResult.error || "Failed to start local model server");
-      }
-      endpoint = `http://127.0.0.1:${serverResult.port}/v1/chat/completions`;
-    } else {
-      const providerKey = provider as "openai" | "groq" | "gemini" | "anthropic" | "custom";
-      apiKey = await this.getApiKey(providerKey);
-
-      switch (providerKey) {
-        case "groq":
-          endpoint = buildApiUrl(API_ENDPOINTS.GROQ_BASE, "/chat/completions");
-          break;
-        case "openai":
-        case "custom":
-          endpoint = buildApiUrl(this.getConfiguredOpenAIBase(), "/chat/completions");
-          break;
-        default:
-          endpoint = buildApiUrl(API_ENDPOINTS.OPENAI_BASE, "/chat/completions");
-          break;
-      }
-    }
-
-    const apiConfig = getOpenAiApiConfig(model);
-    const useOldTokenParam = isLocalProvider || provider === "groq";
-
-    return { endpoint, apiKey, isLocalProvider, apiConfig, useOldTokenParam };
   }
 
   private async callChatCompletionsApi(
@@ -1312,20 +1269,17 @@ class ReasoningService extends BaseReasoningService {
     }
   }
 
-  async *processTextStreamingWithTools(
+  async *processTextStreamingAI(
     messages: Array<{ role: string; content: string }>,
     model: string,
     provider: string,
     config: ReasoningConfig & { systemPrompt: string },
-    tools: Array<{
-      type: "function";
-      function: { name: string; description: string; parameters: Record<string, unknown> };
-    }>
+    tools?: Record<string, import("ai").Tool>
   ): AsyncGenerator<AgentStreamChunk, void, unknown> {
-    const { endpoint, apiKey, isLocalProvider, apiConfig, useOldTokenParam } =
-      await this.resolveEndpoint(model, provider);
+    const cloudProviders = ["openai", "groq", "gemini", "anthropic", "custom"];
+    const isLocalProvider = !cloudProviders.includes(provider);
 
-    // Local providers don't support tools — fall back to content-only streaming
+    // Local models don't work with AI SDK — fall back to content-only streaming
     if (isLocalProvider) {
       const contentGen = this.processTextStreaming(messages, model, provider, config);
       for await (const text of contentGen) {
@@ -1335,158 +1289,50 @@ class ReasoningService extends BaseReasoningService {
       return;
     }
 
-    const maxTokens = config.maxTokens || Math.max(4096, TOKEN_LIMITS.MAX_TOKENS);
+    const providerKey = provider as "openai" | "groq" | "gemini" | "anthropic" | "custom";
+    const apiKey = await this.getApiKey(providerKey);
+    const baseURL = provider === "custom" ? this.getConfiguredOpenAIBase() : undefined;
+    const apiConfig = getOpenAiApiConfig(model);
 
-    const requestBody: Record<string, unknown> = {
-      model,
-      messages,
-      stream: true,
-      tools,
-      tool_choice: "auto",
-    };
+    const aiModel = getAIModel(provider, model, apiKey, baseURL);
 
-    if (useOldTokenParam) {
-      requestBody.temperature = config.temperature ?? 0.3;
-      requestBody.max_tokens = maxTokens;
-    } else {
-      requestBody[apiConfig.tokenParam] = maxTokens;
-      if (apiConfig.supportsTemperature) {
-        requestBody.temperature = config.temperature ?? 0.3;
-      }
-    }
-
-    logger.logReasoning("AGENT_TOOL_STREAM_REQUEST", {
-      endpoint,
+    logger.logReasoning("AGENT_AI_SDK_STREAM_REQUEST", {
       model,
       provider,
-      toolCount: tools.length,
+      hasTools: !!tools,
+      toolCount: tools ? Object.keys(tools).length : 0,
       messageCount: messages.length,
     });
 
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (apiKey) {
-      headers["Authorization"] = `Bearer ${apiKey}`;
-    }
-
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(requestBody),
+    const result = streamText({
+      model: aiModel,
+      messages: messages.map((m) => ({
+        role: m.role as "system" | "user" | "assistant",
+        content: m.content,
+      })),
+      tools: tools || undefined,
+      stopWhen: stepCountIs(tools ? 5 : 1),
+      ...(apiConfig.supportsTemperature ? { temperature: config.temperature ?? 0.3 } : {}),
+      maxOutputTokens: config.maxTokens || 4096,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage: string;
-      try {
-        const errorData = JSON.parse(errorText);
-        errorMessage =
-          errorData.error?.message ||
-          errorData.message ||
-          errorData.error ||
-          `API error: ${response.status}`;
-      } catch {
-        errorMessage = errorText || `API error: ${response.status}`;
+    for await (const chunk of result.fullStream) {
+      if (chunk.type === "text-delta") {
+        yield { type: "content", text: chunk.text };
+      } else if (chunk.type === "tool-call") {
+        yield {
+          type: "tool_calls",
+          calls: [
+            {
+              id: chunk.toolCallId,
+              name: chunk.toolName,
+              arguments: JSON.stringify(chunk.input),
+            },
+          ],
+        };
+      } else if (chunk.type === "finish") {
+        yield { type: "done", finishReason: chunk.finishReason };
       }
-      logger.logReasoning("AGENT_TOOL_STREAM_ERROR", { status: response.status, errorMessage });
-      throw new Error(errorMessage);
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("No response body");
-
-    const decoder = new TextDecoder();
-    let buffer = "";
-    // Accumulate tool calls by index — OpenAI streams arguments incrementally
-    const toolCallAccumulator = new Map<number, { id: string; name: string; arguments: string }>();
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith("data: ")) continue;
-
-          const data = trimmed.slice(6);
-          if (data === "[DONE]") {
-            // Flush any remaining accumulated tool calls
-            if (toolCallAccumulator.size > 0) {
-              const sortedCalls = Array.from(toolCallAccumulator.entries())
-                .sort(([a], [b]) => a - b)
-                .map(([, call]) => call);
-              yield { type: "tool_calls", calls: sortedCalls };
-              toolCallAccumulator.clear();
-            }
-            yield { type: "done" };
-            return;
-          }
-
-          try {
-            const parsed = JSON.parse(data);
-            const choice = parsed.choices?.[0];
-            if (!choice) continue;
-
-            const delta = choice.delta;
-            const finishReason = choice.finish_reason;
-
-            // Accumulate text content
-            if (delta?.content) {
-              yield { type: "content", text: delta.content };
-            }
-
-            // Accumulate tool call deltas
-            if (delta?.tool_calls) {
-              for (const toolCallDelta of delta.tool_calls) {
-                const idx = toolCallDelta.index;
-                const existing = toolCallAccumulator.get(idx);
-
-                if (existing) {
-                  // Append incremental argument fragments
-                  if (toolCallDelta.function?.arguments) {
-                    existing.arguments += toolCallDelta.function.arguments;
-                  }
-                } else {
-                  // First chunk for this tool call — initialize
-                  toolCallAccumulator.set(idx, {
-                    id: toolCallDelta.id || "",
-                    name: toolCallDelta.function?.name || "",
-                    arguments: toolCallDelta.function?.arguments || "",
-                  });
-                }
-              }
-            }
-
-            // When finish_reason arrives, yield accumulated state
-            if (finishReason === "tool_calls") {
-              if (toolCallAccumulator.size > 0) {
-                const sortedCalls = Array.from(toolCallAccumulator.entries())
-                  .sort(([a], [b]) => a - b)
-                  .map(([, call]) => call);
-                yield { type: "tool_calls", calls: sortedCalls };
-                toolCallAccumulator.clear();
-              }
-              yield { type: "done", finishReason: "tool_calls" };
-              return;
-            }
-
-            if (finishReason === "stop") {
-              yield { type: "done", finishReason: "stop" };
-              return;
-            }
-          } catch {
-            // skip malformed SSE chunks
-          }
-        }
-      }
-    } finally {
-      reader.releaseLock();
     }
   }
 

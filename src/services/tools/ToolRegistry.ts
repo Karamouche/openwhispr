@@ -1,3 +1,6 @@
+import { jsonSchema } from "ai";
+import type { Tool } from "ai";
+
 export interface ToolResult {
   success: boolean;
   data: unknown;
@@ -10,16 +13,6 @@ export interface ToolDefinition {
   parameters: Record<string, unknown>;
   readOnly: boolean;
   execute: (args: Record<string, unknown>) => Promise<ToolResult>;
-}
-
-interface OpenAIFunctionTool {
-  type: "function";
-  function: {
-    name: string;
-    description: string;
-    parameters: Record<string, unknown>;
-    strict: true;
-  };
 }
 
 export class ToolRegistry {
@@ -37,15 +30,18 @@ export class ToolRegistry {
     return Array.from(this.tools.values());
   }
 
-  toOpenAIFormat(): OpenAIFunctionTool[] {
-    return this.getAll().map((tool) => ({
-      type: "function",
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters,
-        strict: true,
-      },
-    }));
+  toAISDKFormat(): Record<string, Tool> {
+    const result: Record<string, Tool> = {};
+    for (const def of this.getAll()) {
+      result[def.name] = {
+        description: def.description,
+        inputSchema: jsonSchema(def.parameters),
+        execute: async (args: unknown) => {
+          const toolResult = await def.execute(args as Record<string, unknown>);
+          return toolResult.data;
+        },
+      } as Tool;
+    }
+    return result;
   }
 }
