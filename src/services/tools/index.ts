@@ -1,5 +1,8 @@
 import { ToolRegistry } from "./ToolRegistry";
 import { searchNotesTool } from "./searchNotesTool";
+import { getNoteTool } from "./getNoteTool";
+import { createNoteTool } from "./createNoteTool";
+import { updateNoteTool } from "./updateNoteTool";
 import { clipboardTool } from "./clipboardTool";
 import { webSearchTool } from "./webSearchTool";
 import { calendarTool } from "./calendarTool";
@@ -16,6 +19,9 @@ export function createToolRegistry(settings: ToolRegistrySettings): ToolRegistry
   const registry = new ToolRegistry();
 
   registry.register(searchNotesTool);
+  registry.register(getNoteTool);
+  registry.register(createNoteTool);
+  registry.register(updateNoteTool);
   registry.register(clipboardTool);
 
   if (settings.isSignedIn) {

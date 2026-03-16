@@ -39,6 +39,7 @@ export const searchNotesTool: ToolDefinition = {
       }
 
       const results = notes.map((note) => ({
+        id: note.id,
         title: note.title,
         date: note.created_at,
         type: note.note_type,

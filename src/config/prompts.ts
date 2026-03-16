@@ -147,6 +147,11 @@ const DEFAULT_AGENT_SYSTEM_PROMPT =
 const TOOL_INSTRUCTIONS: Record<string, string> = {
   search_notes:
     "Use search_notes to find information from the user's past meetings, discussions, or personal notes before answering from memory.",
+  get_note:
+    "Use get_note to fetch the full content of a specific note by ID. Use search_notes first to find the note ID.",
+  create_note: "Use create_note when the user asks you to create, write, or draft a new note.",
+  update_note:
+    "Use update_note to modify an existing note's title, content, or move it to a different folder. Use search_notes first to find the note ID.",
   web_search:
     "Use web_search for questions about current events, facts you're unsure about, or anything requiring up-to-date information.",
   copy_to_clipboard:
