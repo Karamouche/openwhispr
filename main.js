@@ -580,27 +580,6 @@ async function startApp() {
     }
   }
 
-  ipcMain.on("agent-hotkey-changed", async (_event, hotkey) => {
-    try {
-      if (hotkey) {
-        const result = await hotkeyManager.registerSlot("agent", hotkey, agentHotkeyCallback);
-        if (result.success) {
-          environmentManager.saveAgentKey(hotkey);
-        } else {
-          debugLogger.warn("Failed to update agent hotkey", { hotkey }, "hotkey");
-        }
-      } else {
-        hotkeyManager.unregisterSlot("agent");
-        environmentManager.saveAgentKey("");
-      }
-    } catch (error) {
-      debugLogger.warn(
-        "Failed to update agent hotkey",
-        { error: error instanceof Error ? error.message : String(error), hotkey },
-        "hotkey"
-      );
-    }
-  });
 
   // Phase 2: Initialize remaining managers after windows are visible
   initializeDeferredManagers();

@@ -495,16 +495,17 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (!updateAgentHotkey) {
       localStorage.setItem("agentKey", key);
       useSettingsStore.setState({ agentKey: key });
-      window.electronAPI?.notifyAgentHotkeyChanged?.(key);
       window.electronAPI?.saveAgentKey?.(key);
       return;
     }
 
+    const previousKey = get().agentKey;
+
     void updateAgentHotkey(key)
       .then((result) => {
         if (!result?.success) {
-          localStorage.setItem("agentKey", "");
-          useSettingsStore.setState({ agentKey: "" });
+          localStorage.setItem("agentKey", previousKey);
+          useSettingsStore.setState({ agentKey: previousKey });
           logger.warn(
             "Failed to update agent hotkey",
             { hotkey: key, message: result?.message },
