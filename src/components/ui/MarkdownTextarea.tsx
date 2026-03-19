@@ -31,7 +31,6 @@ interface MarkdownTextareaProps {
   textareaRef?: RefObject<HTMLTextAreaElement | null>;
 }
 
-const SYN = "text-foreground/25";
 const BULLETS = ["•", "◦", "▸"];
 const RE_INLINE_MD = /(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`([^`]+)`)/g;
 
@@ -56,33 +55,33 @@ function parseInline(text: string, lineKey: number): ReactNode[] {
     if (m[1]) {
       tokens.push(
         <span key={k}>
-          <span className={SYN}>{"***"}</span>
+          <span className="invisible">{"***"}</span>
           <span className="font-semibold italic">{m[2]}</span>
-          <span className={SYN}>{"***"}</span>
+          <span className="invisible">{"***"}</span>
         </span>
       );
     } else if (m[3]) {
       tokens.push(
         <span key={k}>
-          <span className={SYN}>{"**"}</span>
+          <span className="invisible">{"**"}</span>
           <span className="font-semibold">{m[4]}</span>
-          <span className={SYN}>{"**"}</span>
+          <span className="invisible">{"**"}</span>
         </span>
       );
     } else if (m[5]) {
       tokens.push(
         <span key={k}>
-          <span className={SYN}>{"*"}</span>
+          <span className="invisible">{"*"}</span>
           <span className="italic">{m[6]}</span>
-          <span className={SYN}>{"*"}</span>
+          <span className="invisible">{"*"}</span>
         </span>
       );
     } else if (m[7]) {
       tokens.push(
         <span key={k}>
-          <span className={SYN}>{"`"}</span>
+          <span className="invisible">{"`"}</span>
           <span className="bg-foreground/[0.04] dark:bg-white/[0.06] rounded-sm px-px">{m[8]}</span>
-          <span className={SYN}>{"`"}</span>
+          <span className="invisible">{"`"}</span>
         </span>
       );
     }
@@ -112,7 +111,7 @@ function renderOverlay(text: string): ReactNode[] {
       const n = hm[1].length;
       out.push(
         <span key={`l${i}`} className="font-bold">
-          <span className={SYN}>{line.slice(0, n + 1)}</span>
+          <span className="invisible">{line.slice(0, n + 1)}</span>
           {parseInline(line.slice(n + 1), i)}
         </span>
       );
@@ -187,7 +186,7 @@ function renderOverlay(text: string): ReactNode[] {
         <span key={`l${i}`}>
           {indent}
           <span className="text-foreground/45">{num}</span>
-          <span className={SYN}>{dot}</span>
+          <span className="invisible">{dot}</span>
           {space}
           {parseInline(content, i)}
         </span>
@@ -198,8 +197,8 @@ function renderOverlay(text: string): ReactNode[] {
     // Blockquote
     if (line.startsWith("> ")) {
       out.push(
-        <span key={`l${i}`}>
-          <span className={SYN}>{"> "}</span>
+        <span key={`l${i}`} className="text-foreground/50 italic">
+          <span className="invisible">{"> "}</span>
           {parseInline(line.slice(2), i)}
         </span>
       );
@@ -209,7 +208,7 @@ function renderOverlay(text: string): ReactNode[] {
     // Horizontal rule
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) {
       out.push(
-        <span key={`l${i}`} className={SYN}>
+        <span key={`l${i}`} className="invisible">
           {line}
         </span>
       );
