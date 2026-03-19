@@ -2356,7 +2356,7 @@ class IPCHandlers {
       streaming.onPartialTranscript = (text) => {
         send("meeting-transcription-segment", { text, source, type: "partial" });
       };
-      streaming.onFinalTranscript = (text) => {
+      streaming.onFinalTranscript = (text, timestamp) => {
         const segments = streaming.completedSegments;
         const latestSegment = segments.length > 0 ? segments[segments.length - 1] : text;
         debugLogger.debug("Meeting segment sending to renderer", {
@@ -2364,7 +2364,12 @@ class IPCHandlers {
           text: latestSegment.slice(0, 80),
           segmentCount: segments.length,
         });
-        send("meeting-transcription-segment", { text: latestSegment, source, type: "final" });
+        send("meeting-transcription-segment", {
+          text: latestSegment,
+          source,
+          type: "final",
+          timestamp,
+        });
       };
       streaming.onError = (error) => {
         send("meeting-transcription-error", error.message);

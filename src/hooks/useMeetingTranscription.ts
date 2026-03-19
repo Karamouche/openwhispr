@@ -8,6 +8,7 @@ export interface TranscriptSegment {
   id: string;
   text: string;
   source: "mic" | "system";
+  timestamp?: number;
 }
 
 interface UseMeetingTranscriptionReturn {
@@ -414,7 +415,12 @@ export function useMeetingTranscription(): UseMeetingTranscriptionReturn {
       const partialSetters = { mic: setMicPartial, system: setSystemPartial };
 
       const segmentCleanup = window.electronAPI?.onMeetingTranscriptionSegment?.(
-        (data: { text: string; source: "mic" | "system"; type: "partial" | "final" }) => {
+        (data: {
+          text: string;
+          source: "mic" | "system";
+          type: "partial" | "final";
+          timestamp?: number;
+        }) => {
           logger.debug(
             "Meeting segment received in renderer",
             {
@@ -430,10 +436,21 @@ export function useMeetingTranscription(): UseMeetingTranscriptionReturn {
             setPartialForSource(data.text);
             setPartialTranscript(data.text);
           } else {
-            setSegments((prev) => [
-              ...prev,
-              { id: `seg-${++segmentCounter}`, text: data.text, source: data.source },
-            ]);
+            const seg: TranscriptSegment = {
+              id: `seg-${++segmentCounter}`,
+              text: data.text,
+              source: data.source,
+              timestamp: data.timestamp,
+            };
+            setSegments((prev) => {
+              // Insert in chronological order — scan from the end since most
+              // segments arrive in order and this is O(1) in the common case.
+              const ts = seg.timestamp ?? Infinity;
+              let i = prev.length;
+              while (i > 0 && (prev[i - 1].timestamp ?? 0) > ts) i--;
+              if (i === prev.length) return [...prev, seg];
+              return [...prev.slice(0, i), seg, ...prev.slice(i)];
+            });
             setPartialForSource("");
             setTranscript((prev) => (prev ? prev + " " + data.text : data.text));
             setPartialTranscript("");
