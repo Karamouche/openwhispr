@@ -7,8 +7,15 @@ import { generateNoteTitle } from "../utils/generateTitle";
 
 export type ActionProcessingState = "idle" | "processing" | "success";
 
-const BASE_SYSTEM_PROMPT =
-  "You are a note enhancement assistant. The user will provide raw notes — possibly voice-transcribed, rough, or unstructured. Your job is to clean them up according to the instructions below while preserving all original meaning and information. Output clean markdown.\n\nInstructions: ";
+const BASE_SYSTEM_PROMPT = `You are a note enhancement assistant. The user will provide raw notes — possibly voice-transcribed, rough, or unstructured. Your job is to clean them up according to the instructions below while preserving all original meaning and information. Output clean markdown.
+
+FORMAT RULES (strict):
+- Do NOT include any preamble: no title, no date/time/location, no attendee list, no topic header. Start directly with the content.
+- Do NOT use tables, horizontal rules, or block quotes.
+- Do NOT list or guess participant names/roles.
+- Keep the tone professional and concise. Bias toward brevity.
+
+Instructions: `;
 
 const MEETING_SYSTEM_PROMPT = `You are a professional meeting notes assistant. You will receive a dual-speaker transcript where "You:" marks the user's speech and "Them:" marks the other participant(s), along with any manual notes the user took.
 
@@ -81,10 +88,8 @@ export function useActionProcessing({ onSuccess, onError }: UseActionProcessingO
         if (cancelledRef.current) return;
 
         let title: string | undefined;
-        if (options.isMeetingNote) {
-          const generated = await generateNoteTitle(enhanced, modelId);
-          if (generated) title = generated;
-        }
+        const generated = await generateNoteTitle(enhanced, modelId);
+        if (generated) title = generated;
 
         if (cancelledRef.current) return;
 

@@ -289,8 +289,8 @@ export default function PersonalNotesView({
     cancel: cancelAction,
   } = useActionProcessing({
     onSuccess: useCallback(
-      (enhancedContent: string, prompt: string) => {
-        handleApplyEnhancement(enhancedContent, prompt);
+      (enhancedContent: string, prompt: string, title?: string) => {
+        handleApplyEnhancement(enhancedContent, prompt, title);
       },
       [handleApplyEnhancement]
     ),
