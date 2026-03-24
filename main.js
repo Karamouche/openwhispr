@@ -75,13 +75,12 @@ if (process.platform === "win32") {
   app.commandLine.appendSwitch("disable-gpu-compositing");
 }
 
-// Enable native Wayland support: Ozone platform for native rendering.
-// KDE uses XWayland for reliable clipboard access, with KGlobalAccel D-Bus
-// for global shortcuts. GNOME and Hyprland run native Wayland with their
-// own D-Bus shortcut managers.
+// Wayland backend: KDE and GNOME use XWayland (KDE for clipboard, GNOME
+// because Wayland forbids app-initiated window positioning). wlroots
+// compositors (Hyprland, Sway) run native. D-Bus shortcuts work either way.
 if (process.platform === "linux" && process.env.XDG_SESSION_TYPE === "wayland") {
   const desktop = (process.env.XDG_CURRENT_DESKTOP || "").toLowerCase();
-  if (desktop.includes("kde")) {
+  if (desktop.includes("kde") || /gnome|ubuntu|unity/.test(desktop)) {
     app.commandLine.appendSwitch("ozone-platform-hint", "x11");
   } else {
     app.commandLine.appendSwitch("ozone-platform-hint", "auto");
@@ -669,17 +668,20 @@ async function startApp() {
   const QdrantManager = require("./src/helpers/qdrantManager");
   qdrantManager = new QdrantManager();
   if (qdrantManager.isAvailable()) {
-    qdrantManager.start().then(() => {
-      if (qdrantManager.isReady()) {
-        const vectorIndex = require("./src/helpers/vectorIndex");
-        vectorIndex.init(qdrantManager.getPort());
-        vectorIndex.ensureCollection().catch((err) => {
-          debugLogger.debug("Qdrant collection setup error (non-fatal)", { error: err.message });
-        });
-      }
-    }).catch((err) => {
-      debugLogger.debug("Qdrant startup error (non-fatal)", { error: err.message });
-    });
+    qdrantManager
+      .start()
+      .then(() => {
+        if (qdrantManager.isReady()) {
+          const vectorIndex = require("./src/helpers/vectorIndex");
+          vectorIndex.init(qdrantManager.getPort());
+          vectorIndex.ensureCollection().catch((err) => {
+            debugLogger.debug("Qdrant collection setup error (non-fatal)", { error: err.message });
+          });
+        }
+      })
+      .catch((err) => {
+        debugLogger.debug("Qdrant startup error (non-fatal)", { error: err.message });
+      });
   }
 
   const localEmbeddings = require("./src/helpers/localEmbeddings");
