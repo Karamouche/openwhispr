@@ -1896,7 +1896,6 @@
       "copyToClipboard": "复制到剪贴板",
       "copied": "已复制！",
       "emptyState": "随便问我",
-      "emptyStateHint": "笔记、网页、日历 — 尽管问",
       "errorPrefix": "错误"
     },
     "titleBar": {

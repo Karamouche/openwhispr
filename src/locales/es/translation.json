@@ -1901,7 +1901,6 @@
       "copyToClipboard": "Copiar al portapapeles",
       "copied": "¡Copiado!",
       "emptyState": "Preguntame lo que sea",
-      "emptyStateHint": "Notas, web, calendario — solo pregunta",
       "errorPrefix": "Error"
     },
     "titleBar": {

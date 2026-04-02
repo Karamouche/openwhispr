@@ -1901,7 +1901,6 @@
       "copyToClipboard": "In Zwischenablage kopieren",
       "copied": "Kopiert!",
       "emptyState": "Frag mich alles",
-      "emptyStateHint": "Notizen, Web, Kalender — einfach fragen",
       "errorPrefix": "Fehler"
     },
     "titleBar": {

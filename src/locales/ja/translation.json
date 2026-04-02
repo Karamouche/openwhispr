@@ -1901,7 +1901,6 @@
       "copyToClipboard": "クリップボードにコピー",
       "copied": "コピーしました！",
       "emptyState": "なんでも聞いてください",
-      "emptyStateHint": "ノート、ウェブ、カレンダー — 何でもどうぞ",
       "errorPrefix": "エラー"
     },
     "titleBar": {

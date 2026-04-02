@@ -1901,7 +1901,6 @@
       "copyToClipboard": "Копировать в буфер обмена",
       "copied": "Скопировано!",
       "emptyState": "Спросите что угодно",
-      "emptyStateHint": "Заметки, веб, календарь — просто спросите",
       "errorPrefix": "Ошибка"
     },
     "titleBar": {

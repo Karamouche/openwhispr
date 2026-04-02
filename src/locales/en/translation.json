@@ -1949,7 +1949,6 @@
       "copyToClipboard": "Copy to clipboard",
       "copied": "Copied!",
       "emptyState": "Ask me anything",
-      "emptyStateHint": "Notes, web, calendar — just ask",
       "errorPrefix": "Error"
     },
     "titleBar": {

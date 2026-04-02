@@ -1901,7 +1901,6 @@
       "copyToClipboard": "Copier dans le presse-papiers",
       "copied": "Copié !",
       "emptyState": "Demandez-moi n'importe quoi",
-      "emptyStateHint": "Notes, web, calendrier — demandez simplement",
       "errorPrefix": "Erreur"
     },
     "titleBar": {
