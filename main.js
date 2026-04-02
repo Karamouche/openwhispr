@@ -367,6 +367,13 @@ function initializeDeferredManagers() {
     });
   }
 
+  // Resolve system audio permission status for the session.
+  // If already granted, the probe succeeds instantly (no dialog).
+  // If never asked, status stays "unknown" until the user clicks "Grant Access".
+  if (audioTapManager?.isSupported()) {
+    audioTapManager.resolvePermission().catch(() => {});
+  }
+
   googleCalendarManager.start();
   meetingDetectionEngine.start();
 }

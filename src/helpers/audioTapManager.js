@@ -78,6 +78,30 @@ class AudioTapManager {
     return { granted: status === "granted", status };
   }
 
+  /**
+   * Probe the native binary to resolve permission status for the session.
+   * Safe to call on startup: only probes when macOS has already asked the
+   * user (screenStatus !== "not-determined"), so no consent dialog appears.
+   * First-time users stay "unknown" until they click "Grant Access".
+   */
+  async resolvePermission() {
+    if (!this.isSupported() || this.permissionStatus !== "unknown") {
+      return;
+    }
+    const { systemPreferences } = require("electron");
+    const screenStatus = systemPreferences.getMediaAccessStatus("screen");
+    if (screenStatus === "not-determined") {
+      // User has never been asked — don't trigger the consent dialog.
+      return;
+    }
+    // User was asked before (granted or denied) — probe is dialog-safe.
+    try {
+      await this.requestAccess();
+    } catch {
+      // requestAccess already caches "denied" on permission_denied errors.
+    }
+  }
+
   async requestAccess() {
     if (!this.isSupported()) {
       return { granted: false, status: "unsupported" };
