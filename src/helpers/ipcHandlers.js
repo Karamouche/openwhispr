@@ -2379,7 +2379,7 @@ class IPCHandlers {
       return { granted: status === "granted", status };
     });
 
-    ipcMain.handle("check-system-audio-access", () => {
+    ipcMain.handle("check-system-audio-access", async () => {
       if (process.platform !== "darwin") {
         return { granted: true, status: "granted", mode: "unsupported" };
       }
@@ -2388,7 +2388,7 @@ class IPCHandlers {
         return { granted: false, status: "unsupported", mode: "unsupported" };
       }
 
-      const result = this.audioTapManager.checkAccess();
+      const result = await this.audioTapManager.verifyAccess();
       return { granted: result.granted, status: result.status, mode: "native" };
     });
 
