@@ -2664,6 +2664,134 @@ class IPCHandlers {
 
     let meetingSendCounts = { mic: 0, system: 0 };
 
+    // Meeting mic captures at 24kHz (for OpenAI Realtime), but local engines
+    // expect 16kHz. Downsample with linear interpolation (3:2 ratio).
+    const downsample24kTo16k = (pcmBuffer) => {
+      const input = new Int16Array(
+        pcmBuffer.buffer,
+        pcmBuffer.byteOffset,
+        pcmBuffer.length / 2
+      );
+      const ratio = 1.5; // 24000 / 16000
+      const outputLength = Math.floor(input.length / ratio);
+      const output = new Int16Array(outputLength);
+      for (let i = 0; i < outputLength; i++) {
+        const srcIdx = i * ratio;
+        const idx = Math.floor(srcIdx);
+        const frac = srcIdx - idx;
+        const s0 = input[idx];
+        const s1 = idx + 1 < input.length ? input[idx + 1] : s0;
+        output[i] = Math.round(s0 + frac * (s1 - s0));
+      }
+      return Buffer.from(output.buffer);
+    };
+
+    const pcm16ToWav = (pcmBuffer, sampleRate = 16000, channels = 1) => {
+      const dataSize = pcmBuffer.length;
+      const header = Buffer.alloc(44);
+      header.write("RIFF", 0);
+      header.writeUInt32LE(36 + dataSize, 4);
+      header.write("WAVE", 8);
+      header.write("fmt ", 12);
+      header.writeUInt32LE(16, 16);
+      header.writeUInt16LE(1, 20);
+      header.writeUInt16LE(channels, 22);
+      header.writeUInt32LE(sampleRate, 24);
+      header.writeUInt32LE(sampleRate * channels * 2, 28);
+      header.writeUInt16LE(channels * 2, 32);
+      header.writeUInt16LE(16, 34);
+      header.write("data", 36);
+      header.writeUInt32LE(dataSize, 40);
+      return Buffer.concat([header, pcmBuffer]);
+    };
+
+    let meetingLocalMode = false;
+    let meetingLocalBuffers = { mic: [], system: [] };
+    let meetingLocalTimer = null;
+    let meetingLocalWin = null;
+    let meetingLocalTranscript = "";
+    let meetingLocalProvider = null;
+    let meetingLocalModel = null;
+    let meetingLocalTranscribing = false;
+
+    const transcribeLocalMeetingChunk = async (source) => {
+      const chunks = meetingLocalBuffers[source];
+      if (!chunks.length) return;
+
+      const pcm24k = Buffer.concat(chunks);
+      meetingLocalBuffers[source] = [];
+
+      const pcm16k = downsample24kTo16k(pcm24k);
+
+      // Skip silent/near-silent chunks to prevent Whisper hallucinations
+      const samples = new Int16Array(pcm16k.buffer, pcm16k.byteOffset, pcm16k.length / 2);
+      let sumSq = 0;
+      for (let i = 0; i < samples.length; i++) {
+        const n = samples[i] / 0x7fff;
+        sumSq += n * n;
+      }
+      const rms = Math.sqrt(sumSq / samples.length);
+      if (rms < 0.005) return;
+
+      const wav = pcm16ToWav(pcm16k);
+
+      try {
+        let result;
+        if (meetingLocalProvider === "nvidia") {
+          result = await this.parakeetManager.transcribeLocalParakeet(wav, { model: meetingLocalModel });
+        } else {
+          result = await this.whisperManager.transcribeLocalWhisper(wav, { model: meetingLocalModel });
+        }
+
+        if (result?.success && result.text?.trim()) {
+          const text = result.text.trim();
+          meetingLocalTranscript += (meetingLocalTranscript ? " " : "") + text;
+
+          if (meetingLocalWin && !meetingLocalWin.isDestroyed()) {
+            meetingLocalWin.webContents.send("meeting-transcription-segment", {
+              text,
+              source,
+              type: "final",
+              timestamp: Date.now(),
+            });
+          }
+        }
+      } catch (error) {
+        debugLogger.error("Local meeting transcription chunk failed", {
+          source,
+          error: error.message,
+        });
+        if (meetingLocalWin && !meetingLocalWin.isDestroyed()) {
+          meetingLocalWin.webContents.send("meeting-transcription-error", error.message);
+        }
+      }
+    };
+
+    const transcribeAllLocalBuffers = async () => {
+      if (meetingLocalTranscribing) return;
+      meetingLocalTranscribing = true;
+      try {
+        await transcribeLocalMeetingChunk("mic");
+        await transcribeLocalMeetingChunk("system");
+      } finally {
+        meetingLocalTranscribing = false;
+      }
+    };
+
+    const resetMeetingLocalState = () => {
+      if (meetingLocalTimer) {
+        clearInterval(meetingLocalTimer);
+        meetingLocalTimer = null;
+      }
+      meetingLocalMode = false;
+      meetingLocalBuffers = { mic: [], system: [] };
+      meetingLocalWin = null;
+      meetingLocalTranscript = "";
+      meetingLocalProvider = null;
+      meetingLocalModel = null;
+      meetingLocalTranscribing = false;
+    };
+
     const resetMeetingStreamingState = () => {
       this._meetingMicStreaming = null;
       this._meetingSystemStreaming = null;
@@ -2688,6 +2816,7 @@ class IPCHandlers {
       if (this.audioTapManager) {
         await this.audioTapManager.stop().catch(() => {});
       }
+      resetMeetingLocalState();
       await disconnectMeetingStreaming().catch(() => {});
     };
 
@@ -2729,6 +2858,10 @@ class IPCHandlers {
         return { success: true, alreadyPrepared: true };
       }
 
+      if (options.provider === "local") {
+        return { success: true };
+      }
+
       if (options.provider !== "openai-realtime") {
         return { success: false, error: `Unsupported provider: ${options.provider}` };
       }
@@ -2768,7 +2901,7 @@ class IPCHandlers {
         const systemAudioMode = getMeetingSystemAudioMode();
 
         // If already prepared (warm connections from prepare), just re-attach handlers
-        if (isMeetingStreamingConnected()) {
+        if (!meetingLocalMode && isMeetingStreamingConnected()) {
           debugLogger.debug("Meeting transcription start: reusing warm connections");
           const win = BrowserWindow.fromWebContents(event.sender);
           attachMeetingStreamingHandlers(this._meetingMicStreaming, win, "mic");
@@ -2776,6 +2909,30 @@ class IPCHandlers {
             attachMeetingStreamingHandlers(this._meetingSystemStreaming, win, "system");
             await startNativeMeetingSystemAudio(event);
           }
+          return { success: true, systemAudioMode };
+        }
+
+        if (options.provider === "local") {
+          meetingLocalMode = true;
+          meetingLocalProvider = options.localProvider || "whisper";
+          meetingLocalModel = options.localModel || null;
+          meetingLocalWin = BrowserWindow.fromWebContents(event.sender);
+          meetingLocalBuffers = { mic: [], system: [] };
+          meetingLocalTranscript = "";
+
+          meetingLocalTimer = setInterval(() => {
+            transcribeAllLocalBuffers();
+          }, 5000);
+
+          if (systemAudioMode === "native") {
+            await startNativeMeetingSystemAudio(event);
+          }
+
+          debugLogger.debug("Meeting transcription started in local mode", {
+            provider: meetingLocalProvider,
+            systemAudioMode,
+          });
+
           return { success: true, systemAudioMode };
         }
 
@@ -2798,6 +2955,12 @@ class IPCHandlers {
     });
 
     const sendMeetingAudio = (audioBuffer, source) => {
+      if (meetingLocalMode) {
+        const buf = Buffer.isBuffer(audioBuffer) ? audioBuffer : Buffer.from(audioBuffer);
+        meetingLocalBuffers[source].push(buf);
+        return;
+      }
+
       const streaming = source === "mic" ? this._meetingMicStreaming : this._meetingSystemStreaming;
       if (!streaming) {
         if (meetingSendCounts[source] === 0) {
@@ -2842,6 +3005,21 @@ class IPCHandlers {
       try {
         if (this.audioTapManager) {
           await this.audioTapManager.stop();
+        }
+
+        if (meetingLocalMode) {
+          if (meetingLocalTimer) {
+            clearInterval(meetingLocalTimer);
+            meetingLocalTimer = null;
+          }
+          try {
+            await transcribeAllLocalBuffers();
+          } catch (err) {
+            debugLogger.error("Local meeting final transcription failed", { error: err.message });
+          }
+          const transcript = meetingLocalTranscript;
+          resetMeetingLocalState();
+          return { success: true, transcript };
         }
 
         const results = await disconnectMeetingStreaming();
