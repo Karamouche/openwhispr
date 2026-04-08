@@ -15,6 +15,25 @@
       "changePath": "Change location",
       "rebuild": "Rebuild all files",
       "rebuildDescription": "Re-sync all notes to disk"
+    },
+    "openclaw": {
+      "title": "OpenClaw",
+      "description": "Connect to a self-hosted OpenClaw gateway and bring every conversation across your channels into OpenWhispr.",
+      "enable": "Enable OpenClaw",
+      "gatewayUrl": "Gateway URL",
+      "gatewayUrlPlaceholder": "ws://127.0.0.1:18789",
+      "token": "Gateway token",
+      "tokenPlaceholder": "Paste your gateway.auth.token",
+      "sshTunnel": "SSH tunnel (optional)",
+      "sshTunnelDescription": "OpenWhispr will probe localhost first. If unreachable, it will open this tunnel.",
+      "sshHost": "SSH host",
+      "sshUser": "SSH user",
+      "sshKeyPath": "SSH private key path",
+      "sshRemotePort": "Remote port",
+      "testConnection": "Test connection",
+      "testing": "Testing…",
+      "testSuccess": "Connected successfully",
+      "testFailed": "Connection failed"
     }
   },
   "tray": {
@@ -931,6 +950,10 @@
       "agentMode": {
         "label": "Agent Mode",
         "description": "Voice chat assistant"
+      },
+      "openclaw": {
+        "label": "OpenClaw",
+        "description": "Gateway, SSH tunnel & channels"
       }
     },
     "title": "Settings"
@@ -1545,7 +1568,8 @@
     "integrations": "Integrations",
     "defaultUser": "User",
     "notSignedIn": "Not signed in",
-    "chat": "Chat"
+    "chat": "Chat",
+    "openclaw": "OpenClaw"
   },
   "chat": {
     "newChat": "New chat",
@@ -1568,6 +1592,31 @@
     "searchTitle": "Search conversations",
     "searchDescription": "Search across all your conversations",
     "newChatEmpty": "Ask about your notes, transcripts, or anything else"
+  },
+  "openclaw": {
+    "connected": "Connected",
+    "connecting": "Connecting",
+    "reconnecting": "Reconnecting",
+    "disconnected": "Disconnected",
+    "error": "Connection error",
+    "configure": "Configure",
+    "connectGateway": "Connect your OpenClaw gateway to bring all your chats here.",
+    "connectGatewayCta": "Connect a gateway",
+    "deleteConfirmTitle": "Remove from OpenWhispr?",
+    "deleteConfirmBody": "This removes the conversation from OpenWhispr. The session on your OpenClaw gateway will continue and any new messages will reappear here.",
+    "newChat": "New chat",
+    "searchChats": "Search OpenClaw chats",
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "slack": "Slack",
+      "telegram": "Telegram",
+      "discord": "Discord",
+      "signal": "Signal",
+      "imessage": "iMessage",
+      "matrix": "Matrix",
+      "main": "Main",
+      "openwhispr": "OpenWhispr"
+    }
   },
   "referral": {
     "title": "Refer and earn rewards",

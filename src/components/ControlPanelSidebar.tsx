@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Home,
   MessageSquare,
@@ -6,6 +6,7 @@ import {
   BookOpen,
   Upload,
   Blocks,
+  Cloud,
   Gift,
   Settings,
   HelpCircle,
@@ -18,12 +19,14 @@ import { useTranslation } from "react-i18next";
 import { cn } from "./lib/utils";
 import SupportDropdown from "./ui/SupportDropdown";
 import { getCachedPlatform } from "../utils/platform";
+import { useSettingsStore } from "../stores/settingsStore";
 
 const platform = getCachedPlatform();
 
 export type ControlPanelView =
   | "home"
   | "chat"
+  | "openclaw"
   | "personal-notes"
   | "dictionary"
   | "upload"
@@ -67,6 +70,7 @@ export default function ControlPanelSidebar({
   updateAction,
 }: ControlPanelSidebarProps) {
   const { t } = useTranslation();
+  const openClawEnabled = useSettingsStore((s) => s.openClawEnabled);
   const [upgradeDismissed, setUpgradeDismissed] = useState(
     () => localStorage.getItem("upgradeProDismissed") === "true"
   );
@@ -79,18 +83,26 @@ export default function ControlPanelSidebar({
     !isProUser &&
     !upgradeDismissed;
 
-  const navItems: {
-    id: ControlPanelView;
-    label: string;
-    icon: React.ComponentType<{ size?: number; className?: string }>;
-  }[] = [
-    { id: "home", label: t("sidebar.home"), icon: Home },
-    { id: "chat", label: t("sidebar.chat"), icon: MessageSquare },
-    { id: "personal-notes", label: t("sidebar.notes"), icon: NotebookPen },
-    { id: "upload", label: t("sidebar.upload"), icon: Upload },
-    { id: "dictionary", label: t("sidebar.dictionary"), icon: BookOpen },
-    { id: "integrations", label: t("sidebar.integrations"), icon: Blocks },
-  ];
+  const navItems = useMemo<
+    {
+      id: ControlPanelView;
+      label: string;
+      icon: React.ComponentType<{ size?: number; className?: string }>;
+    }[]
+  >(
+    () => [
+      { id: "home", label: t("sidebar.home"), icon: Home },
+      { id: "chat", label: t("sidebar.chat"), icon: MessageSquare },
+      ...(openClawEnabled
+        ? [{ id: "openclaw" as const, label: t("sidebar.openclaw"), icon: Cloud }]
+        : []),
+      { id: "personal-notes", label: t("sidebar.notes"), icon: NotebookPen },
+      { id: "upload", label: t("sidebar.upload"), icon: Upload },
+      { id: "dictionary", label: t("sidebar.dictionary"), icon: BookOpen },
+      { id: "integrations", label: t("sidebar.integrations"), icon: Blocks },
+    ],
+    [t, openClawEnabled]
+  );
 
   return (
     <div className="w-48 h-full shrink-0 border-r border-border/15 dark:border-white/6 flex flex-col bg-surface-1/60 dark:bg-surface-1">

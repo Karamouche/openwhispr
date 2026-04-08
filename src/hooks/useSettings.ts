@@ -71,6 +71,17 @@ export interface AgentModeSettings {
   cloudAgentMode: string;
 }
 
+export interface OpenClawSettings {
+  openClawEnabled: boolean;
+  openClawGatewayUrl: string;
+  openClawGatewayToken: string;
+  openClawSshEnabled: boolean;
+  openClawSshHost: string;
+  openClawSshUser: string;
+  openClawSshKeyPath: string;
+  openClawSshRemotePort: number;
+}
+
 function useSettingsInternal() {
   const store = useSettingsStore();
 
@@ -258,6 +269,22 @@ function useSettingsInternal() {
     updateTranscriptionSettings: store.updateTranscriptionSettings,
     updateReasoningSettings: store.updateReasoningSettings,
     updateApiKeys: store.updateApiKeys,
+    openClawEnabled: store.openClawEnabled,
+    openClawGatewayUrl: store.openClawGatewayUrl,
+    openClawGatewayToken: store.openClawGatewayToken,
+    openClawSshEnabled: store.openClawSshEnabled,
+    openClawSshHost: store.openClawSshHost,
+    openClawSshUser: store.openClawSshUser,
+    openClawSshKeyPath: store.openClawSshKeyPath,
+    openClawSshRemotePort: store.openClawSshRemotePort,
+    setOpenClawEnabled: store.setOpenClawEnabled,
+    setOpenClawGatewayUrl: store.setOpenClawGatewayUrl,
+    setOpenClawGatewayToken: store.setOpenClawGatewayToken,
+    setOpenClawSshEnabled: store.setOpenClawSshEnabled,
+    setOpenClawSshHost: store.setOpenClawSshHost,
+    setOpenClawSshUser: store.setOpenClawSshUser,
+    setOpenClawSshKeyPath: store.setOpenClawSshKeyPath,
+    setOpenClawSshRemotePort: store.setOpenClawSshRemotePort,
   };
 }
 

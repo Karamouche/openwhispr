@@ -15,6 +15,25 @@
       "changePath": "變更位置",
       "rebuild": "重建所有檔案",
       "rebuildDescription": "將所有筆記重新同步到磁碟"
+    },
+    "openclaw": {
+      "title": "OpenClaw",
+      "description": "連接到自架的 OpenClaw 閘道，將各個管道的所有對話匯入 OpenWhispr。",
+      "enable": "啟用 OpenClaw",
+      "gatewayUrl": "閘道 URL",
+      "gatewayUrlPlaceholder": "ws://127.0.0.1:18789",
+      "token": "閘道權杖",
+      "tokenPlaceholder": "貼上您的 gateway.auth.token",
+      "sshTunnel": "SSH 通道（選用）",
+      "sshTunnelDescription": "OpenWhispr 會先探測 localhost。若無法連線，將開啟此通道。",
+      "sshHost": "SSH 主機",
+      "sshUser": "SSH 使用者",
+      "sshKeyPath": "SSH 私鑰路徑",
+      "sshRemotePort": "遠端連接埠",
+      "testConnection": "測試連線",
+      "testing": "測試中…",
+      "testSuccess": "連線成功",
+      "testFailed": "連線失敗"
     }
   },
   "tray": {
@@ -883,6 +902,10 @@
       "agentMode": {
         "label": "智慧助手模式",
         "description": "語音聊天助手"
+      },
+      "openclaw": {
+        "label": "OpenClaw",
+        "description": "閘道、SSH 通道和管道"
       }
     },
     "title": "設定"
@@ -1771,7 +1794,8 @@
     "integrations": "整合",
     "defaultUser": "使用者",
     "notSignedIn": "尚未登入",
-    "chat": "聊天"
+    "chat": "聊天",
+    "openclaw": "OpenClaw"
   },
   "chat": {
     "newChat": "新對話",
@@ -1794,6 +1818,31 @@
     "searchTitle": "搜尋對話",
     "searchDescription": "搜尋所有對話",
     "newChatEmpty": "詢問關於筆記、轉錄或其他任何內容"
+  },
+  "openclaw": {
+    "connected": "已連線",
+    "connecting": "連線中",
+    "reconnecting": "重新連線中",
+    "disconnected": "已中斷",
+    "error": "連線錯誤",
+    "configure": "設定",
+    "connectGateway": "連接您的 OpenClaw 閘道，將所有聊天匯入此處。",
+    "connectGatewayCta": "連接閘道",
+    "deleteConfirmTitle": "從 OpenWhispr 移除？",
+    "deleteConfirmBody": "這將從 OpenWhispr 中移除對話。您的 OpenClaw 閘道上的工作階段將繼續存在，任何新訊息都將在此處重新出現。",
+    "newChat": "新對話",
+    "searchChats": "搜尋 OpenClaw 聊天",
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "slack": "Slack",
+      "telegram": "Telegram",
+      "discord": "Discord",
+      "signal": "Signal",
+      "imessage": "iMessage",
+      "matrix": "Matrix",
+      "main": "主要",
+      "openwhispr": "OpenWhispr"
+    }
   },
   "usage": {
     "approachingLimit": "即將達到每週上限",

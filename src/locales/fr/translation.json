@@ -15,6 +15,25 @@
       "changePath": "Changer l'emplacement",
       "rebuild": "Reconstruire tous les fichiers",
       "rebuildDescription": "Resynchroniser toutes les notes sur le disque"
+    },
+    "openclaw": {
+      "title": "OpenClaw",
+      "description": "Connectez-vous à une passerelle OpenClaw auto-hébergée et importez toutes les conversations de vos canaux dans OpenWhispr.",
+      "enable": "Activer OpenClaw",
+      "gatewayUrl": "URL de la passerelle",
+      "gatewayUrlPlaceholder": "ws://127.0.0.1:18789",
+      "token": "Jeton de la passerelle",
+      "tokenPlaceholder": "Collez votre gateway.auth.token",
+      "sshTunnel": "Tunnel SSH (optionnel)",
+      "sshTunnelDescription": "OpenWhispr sondera d'abord localhost. Si inaccessible, il ouvrira ce tunnel.",
+      "sshHost": "Hôte SSH",
+      "sshUser": "Utilisateur SSH",
+      "sshKeyPath": "Chemin de la clé privée SSH",
+      "sshRemotePort": "Port distant",
+      "testConnection": "Tester la connexion",
+      "testing": "Test en cours…",
+      "testSuccess": "Connexion réussie",
+      "testFailed": "Échec de la connexion"
     }
   },
   "tray": {
@@ -883,6 +902,10 @@
       "agentMode": {
         "label": "Mode Agent",
         "description": "Assistant vocal de chat"
+      },
+      "openclaw": {
+        "label": "OpenClaw",
+        "description": "Passerelle, tunnel SSH et canaux"
       }
     },
     "title": "Paramètres"
@@ -1497,7 +1520,8 @@
     "integrations": "Intégrations",
     "defaultUser": "Utilisateur",
     "notSignedIn": "Non connecté",
-    "chat": "Chat"
+    "chat": "Chat",
+    "openclaw": "OpenClaw"
   },
   "chat": {
     "newChat": "Nouveau chat",
@@ -1520,6 +1544,31 @@
     "searchTitle": "Rechercher des conversations",
     "searchDescription": "Rechercher dans toutes vos conversations",
     "newChatEmpty": "Posez des questions sur vos notes, transcriptions ou autre"
+  },
+  "openclaw": {
+    "connected": "Connecté",
+    "connecting": "Connexion en cours",
+    "reconnecting": "Reconnexion",
+    "disconnected": "Déconnecté",
+    "error": "Erreur de connexion",
+    "configure": "Configurer",
+    "connectGateway": "Connectez votre passerelle OpenClaw pour importer tous vos chats ici.",
+    "connectGatewayCta": "Connecter une passerelle",
+    "deleteConfirmTitle": "Retirer d'OpenWhispr ?",
+    "deleteConfirmBody": "Cette action supprime la conversation d'OpenWhispr. La session sur votre passerelle OpenClaw continuera et tout nouveau message réapparaîtra ici.",
+    "newChat": "Nouveau chat",
+    "searchChats": "Rechercher des chats OpenClaw",
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "slack": "Slack",
+      "telegram": "Telegram",
+      "discord": "Discord",
+      "signal": "Signal",
+      "imessage": "iMessage",
+      "matrix": "Matrix",
+      "main": "Principal",
+      "openwhispr": "OpenWhispr"
+    }
   },
   "referral": {
     "title": "Parrainez et gagnez des récompenses",

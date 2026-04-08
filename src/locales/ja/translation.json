@@ -15,6 +15,25 @@
       "changePath": "保存先を変更",
       "rebuild": "すべてのファイルを再構築",
       "rebuildDescription": "すべてのノートをディスクに再同期"
+    },
+    "openclaw": {
+      "title": "OpenClaw",
+      "description": "セルフホストの OpenClaw ゲートウェイに接続し、各チャネルのすべての会話を OpenWhispr に取り込みます。",
+      "enable": "OpenClaw を有効にする",
+      "gatewayUrl": "ゲートウェイ URL",
+      "gatewayUrlPlaceholder": "ws://127.0.0.1:18789",
+      "token": "ゲートウェイトークン",
+      "tokenPlaceholder": "gateway.auth.token を貼り付けてください",
+      "sshTunnel": "SSH トンネル（任意）",
+      "sshTunnelDescription": "OpenWhispr はまず localhost を確認します。到達できない場合はこのトンネルを開きます。",
+      "sshHost": "SSH ホスト",
+      "sshUser": "SSH ユーザー",
+      "sshKeyPath": "SSH 秘密鍵のパス",
+      "sshRemotePort": "リモートポート",
+      "testConnection": "接続テスト",
+      "testing": "テスト中…",
+      "testSuccess": "接続に成功しました",
+      "testFailed": "接続に失敗しました"
     }
   },
   "tray": {
@@ -883,6 +902,10 @@
       "agentMode": {
         "label": "エージェントモード",
         "description": "音声チャットアシスタント"
+      },
+      "openclaw": {
+        "label": "OpenClaw",
+        "description": "ゲートウェイ、SSH トンネル、チャネル"
       }
     },
     "title": "設定"
@@ -1776,7 +1799,8 @@
     "integrations": "連携",
     "defaultUser": "ユーザー",
     "notSignedIn": "未サインイン",
-    "chat": "チャット"
+    "chat": "チャット",
+    "openclaw": "OpenClaw"
   },
   "chat": {
     "newChat": "新しいチャット",
@@ -1799,6 +1823,31 @@
     "searchTitle": "会話を検索",
     "searchDescription": "すべての会話を検索",
     "newChatEmpty": "ノートや文字起こし、その他なんでも聞いてください"
+  },
+  "openclaw": {
+    "connected": "接続済み",
+    "connecting": "接続中",
+    "reconnecting": "再接続中",
+    "disconnected": "切断",
+    "error": "接続エラー",
+    "configure": "設定",
+    "connectGateway": "OpenClaw ゲートウェイを接続して、すべてのチャットをここに取り込みましょう。",
+    "connectGatewayCta": "ゲートウェイを接続",
+    "deleteConfirmTitle": "OpenWhispr から削除しますか？",
+    "deleteConfirmBody": "OpenWhispr から会話を削除します。OpenClaw ゲートウェイ上のセッションは継続され、新しいメッセージはここに再表示されます。",
+    "newChat": "新しいチャット",
+    "searchChats": "OpenClaw のチャットを検索",
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "slack": "Slack",
+      "telegram": "Telegram",
+      "discord": "Discord",
+      "signal": "Signal",
+      "imessage": "iMessage",
+      "matrix": "Matrix",
+      "main": "メイン",
+      "openwhispr": "OpenWhispr"
+    }
   },
   "usage": {
     "approachingLimit": "週間制限に近づいています",

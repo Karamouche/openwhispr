@@ -15,6 +15,7 @@ import type {
   PrivacySettings,
   ThemeSettings,
   AgentModeSettings,
+  OpenClawSettings,
 } from "../hooks/useSettings";
 
 let _ReasoningService: typeof import("../services/ReasoningService").default | null = null;
@@ -66,11 +67,13 @@ const BOOLEAN_SETTINGS = new Set([
   "keepTranscriptionInClipboard",
   "dataRetentionEnabled",
   "noteFilesEnabled",
+  "openClawEnabled",
+  "openClawSshEnabled",
 ]);
 
 const ARRAY_SETTINGS = new Set(["customDictionary", "gcalAccounts"]);
 
-const NUMERIC_SETTINGS = new Set(["audioRetentionDays"]);
+const NUMERIC_SETTINGS = new Set(["audioRetentionDays", "openClawSshRemotePort"]);
 
 const LANGUAGE_MIGRATIONS: Record<string, string> = { zh: "zh-CN" };
 
@@ -93,7 +96,8 @@ export interface SettingsState
     ApiKeySettings,
     PrivacySettings,
     ThemeSettings,
-    AgentModeSettings {
+    AgentModeSettings,
+    OpenClawSettings {
   isSignedIn: boolean;
   audioCuesEnabled: boolean;
   pauseMediaOnDictation: boolean;
@@ -169,6 +173,15 @@ export interface SettingsState
   setAgentSystemPrompt: (value: string) => void;
   setAgentEnabled: (value: boolean) => void;
   setCloudAgentMode: (value: string) => void;
+
+  setOpenClawEnabled: (value: boolean) => void;
+  setOpenClawGatewayUrl: (value: string) => void;
+  setOpenClawGatewayToken: (value: string) => void;
+  setOpenClawSshEnabled: (value: boolean) => void;
+  setOpenClawSshHost: (value: string) => void;
+  setOpenClawSshUser: (value: string) => void;
+  setOpenClawSshKeyPath: (value: string) => void;
+  setOpenClawSshRemotePort: (value: number) => void;
 
   updateTranscriptionSettings: (settings: Partial<TranscriptionSettings>) => void;
   updateReasoningSettings: (settings: Partial<ReasoningSettings>) => void;
@@ -323,6 +336,21 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   agentSystemPrompt: readString("agentSystemPrompt", ""),
   agentEnabled: readBoolean("agentEnabled", true),
   cloudAgentMode: readString("cloudAgentMode", "openwhispr"),
+
+  openClawEnabled: readBoolean("openClawEnabled", false),
+  openClawGatewayUrl: readString("openClawGatewayUrl", "ws://127.0.0.1:18789"),
+  openClawGatewayToken: readString("openClawGatewayToken", ""),
+  openClawSshEnabled: readBoolean("openClawSshEnabled", false),
+  openClawSshHost: readString("openClawSshHost", ""),
+  openClawSshUser: readString("openClawSshUser", ""),
+  openClawSshKeyPath: readString("openClawSshKeyPath", ""),
+  openClawSshRemotePort: (() => {
+    if (!isBrowser) return 18789;
+    const stored = localStorage.getItem("openClawSshRemotePort");
+    if (stored === null) return 18789;
+    const parsed = parseInt(stored, 10);
+    return isNaN(parsed) ? 18789 : parsed;
+  })(),
 
   setUseLocalWhisper: createBooleanSetter("useLocalWhisper"),
   setWhisperModel: createStringSetter("whisperModel"),
@@ -559,6 +587,22 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setAgentSystemPrompt: createStringSetter("agentSystemPrompt"),
   setAgentEnabled: createBooleanSetter("agentEnabled"),
   setCloudAgentMode: createStringSetter("cloudAgentMode"),
+
+  setOpenClawEnabled: createBooleanSetter("openClawEnabled"),
+  setOpenClawGatewayUrl: createStringSetter("openClawGatewayUrl"),
+  setOpenClawGatewayToken: (token: string) => {
+    if (isBrowser) localStorage.setItem("openClawGatewayToken", token);
+    set({ openClawGatewayToken: token });
+    debouncedPersistToEnv();
+  },
+  setOpenClawSshEnabled: createBooleanSetter("openClawSshEnabled"),
+  setOpenClawSshHost: createStringSetter("openClawSshHost"),
+  setOpenClawSshUser: createStringSetter("openClawSshUser"),
+  setOpenClawSshKeyPath: createStringSetter("openClawSshKeyPath"),
+  setOpenClawSshRemotePort: (value: number) => {
+    if (isBrowser) localStorage.setItem("openClawSshRemotePort", String(value));
+    set({ openClawSshRemotePort: value });
+  },
 
   updateTranscriptionSettings: (settings: Partial<TranscriptionSettings>) => {
     const s = useSettingsStore.getState();

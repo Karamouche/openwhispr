@@ -15,6 +15,25 @@
       "changePath": "Изменить расположение",
       "rebuild": "Пересоздать все файлы",
       "rebuildDescription": "Повторно синхронизировать все заметки на диск"
+    },
+    "openclaw": {
+      "title": "OpenClaw",
+      "description": "Подключитесь к самостоятельно размещённому шлюзу OpenClaw и перенесите все разговоры из ваших каналов в OpenWhispr.",
+      "enable": "Включить OpenClaw",
+      "gatewayUrl": "URL шлюза",
+      "gatewayUrlPlaceholder": "ws://127.0.0.1:18789",
+      "token": "Токен шлюза",
+      "tokenPlaceholder": "Вставьте ваш gateway.auth.token",
+      "sshTunnel": "SSH-туннель (опционально)",
+      "sshTunnelDescription": "OpenWhispr сначала проверит localhost. Если недоступно, откроет этот туннель.",
+      "sshHost": "SSH-хост",
+      "sshUser": "SSH-пользователь",
+      "sshKeyPath": "Путь к приватному ключу SSH",
+      "sshRemotePort": "Удалённый порт",
+      "testConnection": "Проверить подключение",
+      "testing": "Проверка…",
+      "testSuccess": "Подключение успешно",
+      "testFailed": "Ошибка подключения"
     }
   },
   "tray": {
@@ -883,6 +902,10 @@
       "agentMode": {
         "label": "Режим агента",
         "description": "Голосовой чат-ассистент"
+      },
+      "openclaw": {
+        "label": "OpenClaw",
+        "description": "Шлюз, SSH-туннель и каналы"
       }
     },
     "title": "Настройки"
@@ -1776,7 +1799,8 @@
     "integrations": "Интеграции",
     "defaultUser": "Пользователь",
     "notSignedIn": "Не авторизован",
-    "chat": "Чат"
+    "chat": "Чат",
+    "openclaw": "OpenClaw"
   },
   "chat": {
     "newChat": "Новый чат",
@@ -1799,6 +1823,31 @@
     "searchTitle": "Поиск бесед",
     "searchDescription": "Поиск по всем беседам",
     "newChatEmpty": "Спросите о заметках, транскрипциях или о чём угодно"
+  },
+  "openclaw": {
+    "connected": "Подключено",
+    "connecting": "Подключение",
+    "reconnecting": "Переподключение",
+    "disconnected": "Отключено",
+    "error": "Ошибка подключения",
+    "configure": "Настроить",
+    "connectGateway": "Подключите шлюз OpenClaw, чтобы все ваши чаты появились здесь.",
+    "connectGatewayCta": "Подключить шлюз",
+    "deleteConfirmTitle": "Удалить из OpenWhispr?",
+    "deleteConfirmBody": "Это удалит беседу из OpenWhispr. Сессия на вашем шлюзе OpenClaw продолжится, и любые новые сообщения снова появятся здесь.",
+    "newChat": "Новый чат",
+    "searchChats": "Поиск чатов OpenClaw",
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "slack": "Slack",
+      "telegram": "Telegram",
+      "discord": "Discord",
+      "signal": "Signal",
+      "imessage": "iMessage",
+      "matrix": "Matrix",
+      "main": "Главный",
+      "openwhispr": "OpenWhispr"
+    }
   },
   "usage": {
     "approachingLimit": "Приближается недельный лимит",

@@ -35,6 +35,7 @@ const DictionaryView = React.lazy(() => import("./DictionaryView"));
 const UploadAudioView = React.lazy(() => import("./notes/UploadAudioView"));
 const IntegrationsView = React.lazy(() => import("./IntegrationsView"));
 const ChatView = React.lazy(() => import("./chat/ChatView"));
+const OpenClawView = React.lazy(() => import("./openclaw/OpenClawView"));
 const CommandSearch = React.lazy(() => import("./CommandSearch"));
 
 export default function ControlPanel() {
@@ -759,6 +760,16 @@ export default function ControlPanel() {
             {activeView === "chat" && (
               <Suspense fallback={null}>
                 <ChatView />
+              </Suspense>
+            )}
+            {activeView === "openclaw" && (
+              <Suspense fallback={null}>
+                <OpenClawView
+                  onOpenSettings={(section) => {
+                    setSettingsSection(section);
+                    setShowSettings(true);
+                  }}
+                />
               </Suspense>
             )}
             {activeView === "personal-notes" && (

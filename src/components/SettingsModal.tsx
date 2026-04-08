@@ -10,6 +10,7 @@ import {
   CreditCard,
   Shield,
   MessageSquare,
+  Cloud,
 } from "lucide-react";
 import SidebarModal, { SidebarItem } from "./ui/SidebarModal";
 import SettingsPage, { SettingsSectionType } from "./SettingsPage";
@@ -84,6 +85,13 @@ export default function SettingsModal({ open, onOpenChange, initialSection }: Se
         label: t("settingsModal.sections.agentMode.label"),
         icon: MessageSquare,
         description: t("settingsModal.sections.agentMode.description"),
+        group: t("settingsModal.groups.speechAi"),
+      },
+      {
+        id: "openclaw",
+        label: t("settingsModal.sections.openclaw.label"),
+        icon: Cloud,
+        description: t("settingsModal.sections.openclaw.description"),
         group: t("settingsModal.groups.speechAi"),
       },
       {
