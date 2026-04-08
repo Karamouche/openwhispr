@@ -10,6 +10,7 @@ import {
 } from "../ui/dropdown-menu";
 import { cn } from "../lib/utils";
 import { normalizeDbDate } from "../../utils/dateFormatting";
+import { getOpenClawChannelIcon } from "../../utils/openClawChannel";
 
 export interface ConversationPreview {
   id: number;
@@ -18,6 +19,8 @@ export interface ConversationPreview {
   created_at: string;
   updated_at: string;
   is_archived?: boolean;
+  origin_channel?: string;
+  unread_count?: number;
 }
 
 interface ConversationItemProps {
@@ -45,6 +48,11 @@ function formatTimestamp(dateStr: string): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function formatChannelLabel(channel: string): string {
+  if (channel === "whatsapp") return "WhatsApp";
+  return channel.charAt(0).toUpperCase() + channel.slice(1);
+}
+
 export default function ConversationItem({
   conversation,
   isActive,
@@ -54,6 +62,13 @@ export default function ConversationItem({
 }: ConversationItemProps) {
   const { t } = useTranslation();
   const isArchived = !!conversation.is_archived;
+  const showChannelBadge =
+    !!conversation.origin_channel && conversation.origin_channel !== "openwhispr";
+  const hasUnread =
+    conversation.unread_count !== undefined && conversation.unread_count > 0;
+  const ChannelIcon = showChannelBadge
+    ? getOpenClawChannelIcon(conversation.origin_channel as string)
+    : null;
 
   return (
     <button
@@ -71,9 +86,16 @@ export default function ConversationItem({
             {conversation.title}
           </p>
           <div className="flex items-center gap-0.5 shrink-0">
-            <span className="text-[10px] text-muted-foreground/40 tabular-nums group-hover:opacity-0 transition-opacity">
-              {formatTimestamp(conversation.updated_at)}
-            </span>
+            {hasUnread ? (
+              <span
+                aria-label="Unread"
+                className="h-1.5 w-1.5 rounded-full bg-primary group-hover:opacity-0 transition-opacity"
+              />
+            ) : (
+              <span className="text-[10px] text-muted-foreground/40 tabular-nums group-hover:opacity-0 transition-opacity">
+                {formatTimestamp(conversation.updated_at)}
+              </span>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -120,10 +142,24 @@ export default function ConversationItem({
             </DropdownMenu>
           </div>
         </div>
-        {conversation.preview && (
-          <p className="text-[11px] text-muted-foreground/50 line-clamp-1 mt-0.5">
-            {conversation.preview}
-          </p>
+        {showChannelBadge && ChannelIcon ? (
+          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+            <span className="flex items-center gap-1 shrink-0 text-[10px] text-muted-foreground/40">
+              <ChannelIcon size={10} className="shrink-0" />
+              {formatChannelLabel(conversation.origin_channel as string)}
+            </span>
+            {conversation.preview && (
+              <p className="text-[11px] text-muted-foreground/50 line-clamp-1 min-w-0">
+                {conversation.preview}
+              </p>
+            )}
+          </div>
+        ) : (
+          conversation.preview && (
+            <p className="text-[11px] text-muted-foreground/50 line-clamp-1 mt-0.5">
+              {conversation.preview}
+            </p>
+          )
         )}
       </div>
     </button>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import { SquarePen, Search, Archive as ArchiveIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -13,6 +13,8 @@ type FlatItem =
   | { type: "conversation"; data: ConversationPreview };
 
 interface ConversationListProps {
+  loadConversations: () => Promise<ConversationPreview[]>;
+  title: string;
   activeConversationId: number | null;
   onSelectConversation: (id: number) => void;
   onNewChat: () => void;
@@ -20,6 +22,7 @@ interface ConversationListProps {
   onArchive: (id: number) => void;
   onDelete: (id: number) => void;
   refreshKey: number;
+  headerSlot?: ReactNode;
 }
 
 function groupByDate(conversations: ConversationPreview[], t: (key: string) => string): FlatItem[] {
@@ -90,6 +93,8 @@ function SkeletonRows() {
 }
 
 export default function ConversationList({
+  loadConversations,
+  title,
   activeConversationId,
   onSelectConversation,
   onNewChat,
@@ -97,6 +102,7 @@ export default function ConversationList({
   onArchive,
   onDelete,
   refreshKey,
+  headerSlot,
 }: ConversationListProps) {
   const { t } = useTranslation();
   const [conversations, setConversations] = useState<ConversationPreview[]>([]);
@@ -106,28 +112,10 @@ export default function ConversationList({
   const showSkeletonTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showSkeleton, setShowSkeleton] = useState(false);
 
-  const loadConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async () => {
     try {
-      const [active, archived] = await Promise.all([
-        window.electronAPI?.getAgentConversationsWithPreview?.(200, 0, false),
-        window.electronAPI?.getAgentConversationsWithPreview?.(200, 0, true),
-      ]);
-      const toPreview = (c: {
-        id: number;
-        title: string;
-        last_message?: string;
-        created_at: string;
-        updated_at: string;
-        archived_at?: string;
-      }) => ({
-        id: c.id,
-        title: c.title || "Untitled",
-        preview: c.last_message,
-        created_at: c.created_at,
-        updated_at: c.updated_at,
-        is_archived: !!c.archived_at,
-      });
-      setConversations([...(active ?? []).map(toPreview), ...(archived ?? []).map(toPreview)]);
+      const result = await loadConversations();
+      setConversations(result);
     } catch {
       // silently fail
     } finally {
@@ -138,16 +126,16 @@ export default function ConversationList({
         showSkeletonTimer.current = null;
       }
     }
-  }, []);
+  }, [loadConversations]);
 
   useEffect(() => {
     setIsLoading(true);
     showSkeletonTimer.current = setTimeout(() => setShowSkeleton(true), 150);
-    loadConversations();
+    fetchConversations();
     return () => {
       if (showSkeletonTimer.current) clearTimeout(showSkeletonTimer.current);
     };
-  }, [loadConversations, refreshKey]);
+  }, [fetchConversations, refreshKey]);
 
   const filtered = useMemo(() => {
     return showArchived
@@ -200,7 +188,8 @@ export default function ConversationList({
     return (
       <div className="flex flex-col h-full">
         <div className="px-2 pt-2 pb-1 flex items-center gap-1.5">
-          <h2 className="text-xs font-medium text-foreground px-1 flex-1">{t("sidebar.chat")}</h2>
+          <h2 className="text-xs font-medium text-foreground px-1 flex-1">{title}</h2>
+          {headerSlot}
         </div>
         <SkeletonRows />
       </div>
@@ -211,7 +200,8 @@ export default function ConversationList({
     return (
       <div className="flex flex-col h-full">
         <div className="px-2 pt-2 pb-1 flex items-center gap-1.5">
-          <h2 className="text-xs font-medium text-foreground px-1 flex-1">{t("sidebar.chat")}</h2>
+          <h2 className="text-xs font-medium text-foreground px-1 flex-1">{title}</h2>
+          {headerSlot}
         </div>
       </div>
     );
@@ -219,6 +209,12 @@ export default function ConversationList({
 
   return (
     <div className="flex flex-col h-full" onKeyDown={handleKeyDown} tabIndex={-1}>
+      {headerSlot && (
+        <div className="px-2 pt-2 pb-1 flex items-center gap-1.5 shrink-0">
+          <h2 className="text-xs font-medium text-foreground px-1 flex-1 truncate">{title}</h2>
+          {headerSlot}
+        </div>
+      )}
       <div className="px-2 pt-2 pb-1 shrink-0 space-y-0.5">
         <button
           onClick={onNewChat}

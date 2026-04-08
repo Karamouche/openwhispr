@@ -6,14 +6,33 @@ import { ChatMessages } from "./ChatMessages";
 import { ChatInput } from "./ChatInput";
 import { ChatEmptyIllustration } from "./ChatEmptyIllustration";
 import ConversationList from "./ConversationList";
+import type { ConversationPreview } from "./ConversationItem";
 import EmptyChatState from "./EmptyChatState";
 import { ConfirmDialog } from "../ui/dialog";
 import { useDialogs } from "../../hooks/useDialogs";
 import { getCachedPlatform } from "../../utils/platform";
+import { toConversationPreview } from "../../utils/conversationPreview";
 
 const CommandSearch = lazy(() => import("../CommandSearch"));
 
 const platform = getCachedPlatform();
+
+async function loadAgentConversations(): Promise<ConversationPreview[]> {
+  const [active, archived] = await Promise.all([
+    window.electronAPI?.getAgentConversationsWithPreview?.(200, 0, false),
+    window.electronAPI?.getAgentConversationsWithPreview?.(200, 0, true),
+  ]);
+  return [...(active ?? []), ...(archived ?? [])].map((row) =>
+    toConversationPreview({
+      id: row.id,
+      title: row.title,
+      last_message: row.last_message,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      archived_at: row.archived_at,
+    })
+  );
+}
 
 function NewChatEmptyState() {
   const { t } = useTranslation();
@@ -158,6 +177,8 @@ export default function ChatView() {
       <div className="flex h-full">
         <div className="w-56 min-w-50 shrink-0 border-r border-border/15 dark:border-white/6">
           <ConversationList
+            loadConversations={loadAgentConversations}
+            title={t("sidebar.chat")}
             activeConversationId={activeConversationId}
             onSelectConversation={handleSelectConversation}
             onNewChat={handleNewChat}
