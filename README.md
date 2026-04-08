@@ -14,6 +14,21 @@
 
 <p align="center">Voice-to-text dictation and productivity app with AI agents, meeting transcription, notes, and local/cloud speech recognition.<br/>Privacy-first and available cross-platform.</p>
 
+## Sponsors
+
+<p align="center">Sponsored by</p>
+<p align="center">
+  <a href="https://console.neon.tech/app/?promo=openwhispr">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://neon.com/brand/neon-logo-dark-color.svg">
+      <source media="(prefers-color-scheme: light)" srcset="https://neon.com/brand/neon-logo-light-color.svg">
+      <img width="250" alt="Neon" src="https://neon.com/brand/neon-logo-light-color.svg">
+    </picture>
+  </a>
+</p>
+
+<p align="center"><a href="https://console.neon.tech/app/?promo=openwhispr">Neon</a> is the serverless Postgres platform powering OpenWhispr Cloud accounts, sync, and authentication.</p>
+
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=OpenWhispr/openwhispr&type=date&legend=top-left)](https://www.star-history.com/#OpenWhispr/openwhispr&type=date&legend=top-left)
@@ -577,7 +592,8 @@ open-whispr/
 - **Build Tool**: Vite with optimized Tailwind plugin
 - **Desktop**: Electron 39 with context isolation
 - **UI Components**: shadcn/ui with Radix primitives
-- **Database**: better-sqlite3 with FTS5 for local storage (transcriptions, notes, agents, calendar)
+- **Local Database**: better-sqlite3 with FTS5 for local storage (transcriptions, notes, agents, calendar)
+- **Cloud Database**: [Neon Serverless Postgres](https://console.neon.tech/app/?promo=openwhispr) — powers OpenWhispr Cloud accounts, sync, and authentication
 - **Speech-to-Text**: OpenAI Whisper (whisper.cpp) + NVIDIA Parakeet (sherpa-onnx) for local, OpenAI API for cloud
 - **Live Transcription**: OpenAI Realtime API over WebSocket for meeting transcription
 - **AI Processing**: Multi-provider streaming (OpenAI, Anthropic, Gemini, Groq, local llama.cpp)
@@ -884,3 +900,4 @@ OpenWhispr is actively maintained and ready for production use. Current version:
 - **[shadcn/ui](https://ui.shadcn.com/)** - Beautiful UI components built on Radix primitives
 - **[Hugging Face](https://huggingface.co/)** - Model hosting platform for our local speech recognition and language models
 - **[llama.cpp](https://github.com/ggerganov/llama.cpp)** - Local LLM inference for AI-powered text processing
+- **[Neon](https://console.neon.tech/app/?promo=openwhispr)** - Serverless Postgres powering OpenWhispr Cloud accounts and sync. Official sponsor of the OpenWhispr Open Source project.
