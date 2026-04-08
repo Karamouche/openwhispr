@@ -142,7 +142,7 @@ export function useOpenClawStreaming({
       if (!key) return;
       setAgentState("thinking");
       try {
-        await window.electronAPI?.openclaw?.sendMessage?.({ sessionKey: key, text: userText });
+        await window.electronAPI?.openclaw?.sendMessage?.(key, userText);
       } catch (error) {
         setAgentState("idle");
         setMessages((prev) => [

@@ -1360,6 +1360,175 @@ declare global {
       } | null>;
       updateNotificationReady?: () => Promise<void>;
       updateNotificationRespond?: (action: string) => Promise<{ success: boolean }>;
+
+      // OpenClaw gateway transport
+      openclaw?: {
+        status: () => Promise<
+          "disconnected" | "connecting" | "connected" | "reconnecting" | "error"
+        >;
+        listSessions: () => Promise<
+          Array<{
+            sessionKey: string;
+            title?: string;
+            channel?: string;
+            lastActivity?: string;
+            preview?: string;
+          }>
+        >;
+        createSession: (opts?: { title?: string }) => Promise<{ sessionKey: string }>;
+        setActiveSession: (sessionKey: string | null) => Promise<void>;
+        getHistory: (
+          sessionKey: string,
+          opts?: { maxChars?: number }
+        ) => Promise<{
+          messages: Array<{ role: string; content: string; metadata?: string }>;
+        }>;
+        sendMessage: (sessionKey: string, text: string) => Promise<{ messageId: string }>;
+        abort: (sessionKey: string) => Promise<void>;
+        testConnection: (config: unknown) => Promise<{ ok: boolean; error?: string }>;
+        tabActive: (active: boolean) => void;
+        onStatusChange: (
+          callback: (
+            event: unknown,
+            status: "disconnected" | "connecting" | "connected" | "reconnecting" | "error"
+          ) => void
+        ) => () => void;
+        onSessionsChanged: (callback: (event: unknown) => void) => () => void;
+        onMessageChunk: (
+          callback: (
+            event: unknown,
+            payload: { sessionKey: string; messageId: string; delta: string }
+          ) => void
+        ) => () => void;
+        onMessageDone: (
+          callback: (
+            event: unknown,
+            payload: {
+              sessionKey: string;
+              messageId: string;
+              content: string;
+              toolCalls?: Array<{
+                id: string;
+                name: string;
+                arguments: string;
+                status: "executing" | "completed" | "error";
+                result?: string;
+              }>;
+            }
+          ) => void
+        ) => () => void;
+        onToolCall: (
+          callback: (
+            event: unknown,
+            payload: { sessionKey: string; messageId: string; tool: string; input: unknown }
+          ) => void
+        ) => () => void;
+        onToolResult: (
+          callback: (
+            event: unknown,
+            payload: { sessionKey: string; messageId: string; tool: string; output: string }
+          ) => void
+        ) => () => void;
+        onProactiveMessage: (
+          callback: (
+            event: unknown,
+            payload: {
+              sessionKey: string;
+              messageId: string;
+              role: string;
+              content: string;
+              channel?: string;
+            }
+          ) => void
+        ) => () => void;
+        onError: (
+          callback: (event: unknown, payload: { code: string; message: string }) => void
+        ) => () => void;
+        onOpenConversation: (
+          callback: (event: unknown, payload: { conversationId: number; sessionKey: string }) => void
+        ) => () => void;
+      };
+
+      // OpenClaw conversation persistence
+      upsertOpenClawConversation?: (params: {
+        remoteSessionKey: string;
+        title?: string;
+        originChannel?: string;
+      }) => Promise<{ id: number }>;
+      findOpenClawConversationBySessionKey?: (
+        remoteSessionKey: string
+      ) => Promise<{
+        id: number;
+        remote_session_key: string;
+        title: string;
+        origin_channel?: string;
+        unread_count: number;
+        created_at: string;
+        updated_at: string;
+        archived_at?: string;
+      } | null>;
+      getOpenClawConversation?: (id: number) => Promise<{
+        id: number;
+        remote_session_key: string;
+        title: string;
+        origin_channel?: string;
+        unread_count: number;
+        created_at: string;
+        updated_at: string;
+        archived_at?: string;
+        messages: Array<{
+          id: number;
+          conversation_id: number;
+          role: "user" | "assistant" | "system" | "tool";
+          content: string;
+          metadata?: string;
+          remote_message_id?: string;
+          created_at: string;
+        }>;
+      }>;
+      getOpenClawConversationsWithPreview?: (
+        limit?: number,
+        offset?: number,
+        includeArchived?: boolean
+      ) => Promise<
+        Array<{
+          id: number;
+          remote_session_key: string;
+          title: string;
+          origin_channel?: string;
+          unread_count: number;
+          last_message?: string;
+          created_at: string;
+          updated_at: string;
+          archived_at?: string;
+        }>
+      >;
+      updateOpenClawConversationTitle?: (
+        id: number,
+        title: string
+      ) => Promise<{ success: boolean }>;
+      addOpenClawMessage?: (
+        conversationId: number,
+        role: "user" | "assistant" | "system" | "tool",
+        content: string,
+        metadata?: Record<string, unknown> | string,
+        remoteMessageId?: string
+      ) => Promise<{ id: number }>;
+      getOpenClawMessages?: (conversationId: number) => Promise<
+        Array<{
+          id: number;
+          conversation_id: number;
+          role: "user" | "assistant" | "system" | "tool";
+          content: string;
+          metadata?: string;
+          remote_message_id?: string;
+          created_at: string;
+        }>
+      >;
+      deleteOpenClawConversation?: (id: number) => Promise<{ success: boolean }>;
+      archiveOpenClawConversation?: (id: number) => Promise<{ success: boolean }>;
+      unarchiveOpenClawConversation?: (id: number) => Promise<{ success: boolean }>;
+      clearOpenClawUnread?: (conversationId: number) => Promise<{ success: boolean }>;
     };
 
     api?: {

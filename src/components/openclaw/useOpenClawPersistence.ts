@@ -51,7 +51,7 @@ export function useOpenClawPersistence(
     const conv = await window.electronAPI?.getOpenClawConversation?.(id);
     if (!conv) return null;
     conversationIdRef.current = id;
-    sessionKeyRef.current = conv.remoteSessionKey ?? null;
+    sessionKeyRef.current = conv.remote_session_key ?? null;
     const loaded: Message[] = (conv.messages ?? []).map((m) => {
       const parsed = m.metadata ? tryParseMetadata(m.metadata) : undefined;
       const toolCalls = parsed?.toolCalls as ToolCallInfo[] | undefined;
