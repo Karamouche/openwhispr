@@ -83,7 +83,7 @@
     "!**/node_modules/**/CHANGELOG*",
     "!**/node_modules/**/.github/**"
   ],
-  "asarUnpack": ["**/node_modules/ffmpeg-static/**/*", "**/node_modules/better-sqlite3/**/*"],
+  "asarUnpack": ["**/node_modules/ffmpeg-static/**/*", "**/node_modules/better-sqlite3/**/*", "**/node_modules/onnxruntime-node/**/*"],
   "extraResources": [
     ".env",
     "src/assets/**/*",
@@ -103,10 +103,12 @@
         "whisper-server-*",
         "llama-server-*",
         "sherpa-onnx-*",
+        "qdrant-*",
         "windows-key-listener*",
         "windows-mic-listener*",
         "windows-text-monitor*",
         "windows-fast-paste*",
+        "all-MiniLM-L6-v2/**/*",
         "*.dylib",
         "*.dll",
         "*.so*"
@@ -133,6 +135,12 @@
   "win": {
     "target": ["nsis", "portable"],
     "icon": "src/assets/icon.ico",
+    "azureSignOptions": {
+      "endpoint": "https://eus.codesigning.azure.net/",
+      "certificateProfileName": "openwhispr-release",
+      "codeSigningAccountName": "OpenWhispr",
+      "publisherName": "CN=Gizmo Labs Inc., O=Gizmo Labs Inc., L=Wilmington, S=Delaware, C=US"
+    },
     "extraResources": [
       {
         "from": "resources/bin/nircmd.exe",

@@ -158,38 +158,55 @@ class MeetingDetectionEngine {
     });
   }
 
-  handleUserResponse(detectionId, action) {
-    debugLogger.info("User response to detection", { detectionId, action }, "meeting");
-    if (action === "dismiss") {
-      const detection = this.activeDetections.get(detectionId);
-      if (detection) {
-        this._dismiss();
-        detection.dismissed = true;
-      }
-    }
-  }
-
   async handleNotificationResponse(detectionId, action) {
     debugLogger.info("Notification response", { detectionId, action }, "meeting");
     try {
       const detection = this.activeDetections.get(detectionId);
 
       if (action === "start" && detection) {
-        this._meetingModeActive = true;
         const eventSummary = detection.event?.summary || "New note";
 
         const noteResult = this.databaseManager.saveNote(eventSummary, "", "meeting");
         const meetingsFolder = this.databaseManager.getMeetingsFolder();
 
-        if (noteResult?.note?.id && meetingsFolder?.id) {
-          await this.windowManager.createControlPanelWindow();
-          this.windowManager.snapControlPanelToMeetingMode();
-          this.windowManager.sendToControlPanel("navigate-to-meeting-note", {
-            noteId: noteResult.note.id,
-            folderId: meetingsFolder.id,
-            event: detection.event,
-          });
+        if (!noteResult?.note?.id || !meetingsFolder?.id) {
+          debugLogger.error(
+            "Meeting note creation failed",
+            { noteId: noteResult?.note?.id, folderId: meetingsFolder?.id },
+            "meeting"
+          );
+          this.activeDetections.delete(detectionId);
+          return;
         }
+
+        this._meetingModeActive = true;
+
+        this.broadcastToWindows("note-added", noteResult.note);
+
+        const isRealEvent =
+          detection.event?.calendar_id &&
+          detection.event.calendar_id !== "__detected__" &&
+          detection.event.calendar_id !== "__manual__";
+
+        if (isRealEvent) {
+          const calEvent = this.databaseManager.getCalendarEventById(detection.event.id);
+          const updates = { calendar_event_id: detection.event.id };
+          if (calEvent?.attendees) {
+            updates.participants = calEvent.attendees;
+          }
+          const updateResult = this.databaseManager.updateNote(noteResult.note.id, updates);
+          if (updateResult?.success && updateResult?.note) {
+            this.broadcastToWindows("note-updated", updateResult.note);
+          }
+        }
+
+        await this.windowManager.createControlPanelWindow();
+        this.windowManager.snapControlPanelToMeetingMode();
+        this.windowManager.sendToControlPanel("navigate-to-meeting-note", {
+          noteId: noteResult.note.id,
+          folderId: meetingsFolder.id,
+          event: detection.event,
+        });
 
         this.audioActivityDetector.resetPrompt();
 
@@ -197,8 +214,8 @@ class MeetingDetectionEngine {
       } else if (action === "dismiss") {
         if (detection) {
           this._dismiss();
-          detection.dismissed = true;
         }
+        this.activeDetections.delete(detectionId);
       }
     } catch (error) {
       this._meetingModeActive = false;
@@ -308,6 +325,10 @@ class MeetingDetectionEngine {
   setMeetingModeActive(active) {
     this._meetingModeActive = active;
     debugLogger.info("Meeting mode active state changed", { active }, "meeting");
+    if (!active) {
+      // Own mic usage during meeting mode sets hasPrompted=true; reset so future detections work
+      this.audioActivityDetector.resetPrompt();
+    }
   }
 
   setUserRecording(active) {

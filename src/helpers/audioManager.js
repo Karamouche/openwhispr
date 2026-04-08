@@ -930,6 +930,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       return normalizedText;
     }
 
+    if (this.skipReasoning) {
+      logger.logReasoning("REASONING_SKIPPED_AGENT_MODE", {
+        source,
+        reason: "skipReasoning is set (agent mode) — returning raw transcription",
+      });
+      return normalizedText;
+    }
+
     logger.logReasoning("TRANSCRIPTION_RECEIVED", {
       source,
       textLength: normalizedText.length,

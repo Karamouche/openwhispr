@@ -354,14 +354,34 @@ class AudioActivityDetector extends EventEmitter {
   // ---------------------------------------------------------------------------
 
   _onMicStateChanged(active) {
-    if (this._userRecording) return;
-    if (this.lastDismissedAt && Date.now() - this.lastDismissedAt < COOLDOWN_MS) return;
+    if (this._userRecording) {
+      debugLogger.debug("Mic state changed but user recording, ignoring", { active }, "meeting");
+      return;
+    }
+    if (this.lastDismissedAt && Date.now() - this.lastDismissedAt < COOLDOWN_MS) {
+      debugLogger.debug(
+        "Mic state changed but in cooldown",
+        {
+          active,
+          remainingMs: COOLDOWN_MS - (Date.now() - this.lastDismissedAt),
+        },
+        "meeting"
+      );
+      return;
+    }
 
-    debugLogger.debug("Mic state changed (event-driven)", { active }, "meeting");
+    debugLogger.debug(
+      "Mic state changed (event-driven)",
+      { active, hasPrompted: this.hasPrompted },
+      "meeting"
+    );
 
     if (active) {
       this._clearResetTimer();
-      if (this.hasPrompted) return;
+      if (this.hasPrompted) {
+        debugLogger.debug("Mic active but already prompted, suppressing", {}, "meeting");
+        return;
+      }
       if (!this.audioActiveStart) this.audioActiveStart = Date.now();
 
       if (!this._sustainedTimer) {

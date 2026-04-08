@@ -7,6 +7,14 @@
       "uiDescription": "OpenWhispr のインターフェースで使用する言語を選択",
       "transcriptionLabel": "文字起こし言語",
       "transcriptionDescription": "より正確な文字起こしのために話す言語を選択"
+    },
+    "noteFiles": {
+      "title": "ノートをファイルとして保存",
+      "description": "ノートを .md ファイルとしてディスクに自動保存し、フォルダごとに整理",
+      "path": "保存先",
+      "changePath": "保存先を変更",
+      "rebuild": "すべてのファイルを再構築",
+      "rebuildDescription": "すべてのノートをディスクに再同期"
     }
   },
   "tray": {
@@ -22,6 +30,7 @@
     "appLabel": "OpenWhispr",
     "quit": "OpenWhispr を終了",
     "speech": "スピーチ",
+    "settings": "設定...",
     "help": "ヘルプ",
     "learnMore": "詳細を見る",
     "file": "ファイル",
@@ -939,15 +948,15 @@
           "period": "永久",
           "features": [
             "## OpenWhispr Cloud",
-            "2,000 words/week transcription",
-            "5 hours of meeting recordings/month",
-            "## Always free",
-            "Unlimited local AI models",
-            "Unlimited cloud transcription with your own API keys",
-            "100+ languages supported",
-            "Custom dictionary",
-            "Zero data retention",
-            "Community support"
+            "週2,000ワードの文字起こし",
+            "月5時間の会議録音",
+            "## 永久無料",
+            "無制限のローカルAIモデル",
+            "独自のAPIキーで無制限のクラウド文字起こし",
+            "100以上の言語に対応",
+            "カスタム辞書",
+            "データ保持なし",
+            "コミュニティサポート"
           ]
         },
         "pro": {
@@ -959,10 +968,10 @@
           "annualEquivalent": "$6.67",
           "includesPrefix": "Free の全機能 +",
           "features": [
-            "Unlimited cloud transcription",
-            "20 hours of meeting recordings/month",
-            "Mobile app (iOS Coming Soon)",
-            "Email support"
+            "無制限のクラウド文字起こし",
+            "月20時間の会議録音",
+            "モバイルアプリ（iOS 近日公開）",
+            "メールサポート"
           ],
           "cta": "始める",
           "switchToAnnual": "年払いに切り替え"
@@ -977,10 +986,10 @@
           "includesPrefix": "Pro の全機能 +",
           "badge": "一番人気",
           "features": [
-            "Unlimited meeting recordings",
-            "Agent mode",
-            "Chat over your data (Coming Soon)",
-            "Priority support"
+            "無制限の会議録音",
+            "エージェントモード",
+            "データとチャット（近日公開）",
+            "優先サポート"
           ],
           "cta": "始める",
           "switchToAnnual": "年払いに切り替え"
@@ -988,16 +997,16 @@
         "enterprise": {
           "name": "Enterprise",
           "price": "カスタム",
-          "subtitle": "For advanced security & support",
+          "subtitle": "高度なセキュリティとサポート向け",
           "includesPrefix": "Business の全機能 +",
           "features": [
-            "Managed API credits",
-            "Cloud sync across devices",
-            "Team features & admin",
-            "SSO & compliance",
-            "Dedicated support"
+            "管理されたAPIクレジット",
+            "デバイス間のクラウド同期",
+            "チーム機能と管理",
+            "SSO とコンプライアンス",
+            "専任サポート"
           ],
-          "cta": "Contact Sales"
+          "cta": "営業に問い合わせる"
         },
         "currentPlan": "現在のプラン",
         "upgrade": "アップグレード",
@@ -1394,6 +1403,16 @@
           "description": "独自のプロバイダーと API キーを設定してください。",
           "title": "カスタム設定に切り替えました"
         }
+      },
+      "gpuDevice": {
+        "title": "文字起こしGPU",
+        "description": "ローカル音声認識に使用するGPU"
+      }
+    },
+    "intelligence": {
+      "gpuDevice": {
+        "title": "Intelligence GPU",
+        "description": "ローカルAI処理に使用するGPU"
       }
     }
   },
@@ -1469,6 +1488,11 @@
     }
   },
   "notes": {
+    "sidebar": {
+      "newNote": "新しいノート",
+      "searchNotes": "ノートを検索",
+      "actions": "アクション"
+    },
     "editor": {
       "transcribe": "文字起こし",
       "staleIndicator": "強化後にコンテンツが変更されました",
@@ -1476,6 +1500,9 @@
       "transcript": "文字起こし",
       "notes": "ノート",
       "conversationWillAppear": "会話がここに表示されます...",
+      "linkedEvent": "リンクされたイベント",
+      "noFolder": "フォルダなし",
+      "participants": "参加者",
       "untitled": "無題",
       "noteTitle": "ノートのタイトル",
       "stop": "停止",
@@ -1486,8 +1513,15 @@
       "raw": "元のテキスト",
       "enhanced": "強化済み",
       "saving": "保存中",
-      "wordsCount": "{{count}} 語",
       "startWriting": "書き始める..."
+    },
+    "participants": {
+      "attendee": "名の参加者",
+      "attendees": "名の参加者",
+      "addAttendees": "参加者を追加",
+      "addPlaceholder": "参加者を追加...",
+      "typeEmail": "メールアドレスを入力して追加...",
+      "me": "（自分）"
     },
     "context": {
       "moveToFolder": "フォルダに移動",
@@ -1495,7 +1529,8 @@
       "rename": "名前を変更",
       "searchFolders": "フォルダを検索...",
       "noResults": "フォルダが見つかりません",
-      "newFolder": "新しいフォルダ"
+      "newFolder": "新しいフォルダ",
+      "showInFileManager": "{{manager}}で表示"
     },
     "actions": {
       "manage": "アクションを管理...",
@@ -1510,6 +1545,9 @@
       "update": "更新",
       "cancel": "キャンセル",
       "noActions": "カスタムアクションはまだありません",
+      "promptLabel": "プロンプト",
+      "emptyEditorTitle": "アクションを選択",
+      "emptyEditorDescription": "リストからアクションを選択するか、新しく作成してください",
       "runAction": "{{name}} を実行",
       "selectAction": "アクションを選択",
       "done": "完了",
@@ -1744,7 +1782,30 @@
     "learnMore": "詳しく見る",
     "integrations": "連携",
     "defaultUser": "ユーザー",
-    "notSignedIn": "未サインイン"
+    "notSignedIn": "未サインイン",
+    "chat": "チャット"
+  },
+  "chat": {
+    "newChat": "新しいチャット",
+    "search": "会話を検索...",
+    "archived": "アーカイブ済み",
+    "noConversations": "最初の会話を始めましょう",
+    "selectChat": "会話を選択するか、新しく始めてください",
+    "noResults": "該当する会話がありません",
+    "today": "今日",
+    "yesterday": "昨日",
+    "previousWeek": "過去7日間",
+    "older": "それ以前",
+    "archive": "アーカイブ",
+    "unarchive": "アーカイブ解除",
+    "delete": "削除",
+    "deleteConfirm": "この会話は完全に削除されます。元に戻すことはできません。",
+    "editTitle": "ダブルクリックでタイトルを編集",
+    "untitled": "無題",
+    "searchChats": "チャットを検索",
+    "searchTitle": "会話を検索",
+    "searchDescription": "すべての会話を検索",
+    "newChatEmpty": "ノートや文字起こし、その他なんでも聞いてください"
   },
   "usage": {
     "approachingLimit": "週間制限に近づいています",
@@ -1856,7 +1917,7 @@
       "newConversation": "新規",
       "copyToClipboard": "クリップボードにコピー",
       "copied": "コピーしました！",
-      "emptyState": "{{hotkey}} を長押しして会話を開始",
+      "emptyState": "なんでも聞いてください",
       "errorPrefix": "エラー"
     },
     "titleBar": {
@@ -1869,7 +1930,30 @@
       "toClose": "閉じる",
       "listening": "聞いています...",
       "transcribing": "文字起こし中...",
-      "thinking": "考え中..."
+      "thinking": "考え中...",
+      "typeMessage": "メッセージを入力...",
+      "send": "送信"
+    },
+    "tools": {
+      "search_notesStatus": "ノートを検索中...",
+      "web_searchStatus": "ウェブを検索中...",
+      "copy_to_clipboardStatus": "クリップボードにコピー中...",
+      "get_calendar_eventsStatus": "カレンダーを確認中...",
+      "get_noteStatus": "ノートを読み込み中...",
+      "create_noteStatus": "ノートを作成中...",
+      "update_noteStatus": "ノートを更新中...",
+      "copiedToClipboard": "クリップボードにコピーしました",
+      "foundNotes": "{{count}}件のノートが見つかりました",
+      "foundNotes_plural": "{{count}}件のノートが見つかりました",
+      "searchResults": "{{count}}件の結果が見つかりました",
+      "searchResults_plural": "{{count}}件の結果が見つかりました",
+      "openNote": "ノートを開く",
+      "calendarEvents": "{{count}}件の予定が見つかりました",
+      "calendarEvents_plural": "{{count}}件の予定が見つかりました",
+      "noResults": "結果が見つかりません",
+      "error": "ツールエラー",
+      "unknownTool": "不明なツール: {{name}}",
+      "invalidArgs": "{{name}} のツール引数が無効です"
     }
   },
   "integrations": {
@@ -2058,5 +2142,16 @@
       "createFailed": "APIキーを作成できませんでした",
       "revokeFailed": "APIキーを取り消せませんでした"
     }
+  },
+  "embeddedChat": {
+    "askPlaceholder": "何でも聞いてください...",
+    "send": "送信",
+    "title": "チャット",
+    "emptyState": "このノートについて質問してください",
+    "dock": "サイドバーに固定",
+    "undock": "サイドバーから外す",
+    "close": "チャットを閉じる",
+    "newChat": "新しいチャット",
+    "conversationSelector": "会話を切り替え"
   }
 }

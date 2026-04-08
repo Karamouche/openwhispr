@@ -29,7 +29,27 @@ const MEETING_STOP_FLUSH_TIMEOUT_MS = 50;
 const REALTIME_MODELS = new Set(["gpt-4o-mini-transcribe", "gpt-4o-transcribe"]);
 
 const getMeetingTranscriptionOptions = () => {
-  const { cloudTranscriptionMode, cloudTranscriptionModel, openaiApiKey } = getSettings();
+  const {
+    useLocalWhisper,
+    localTranscriptionProvider,
+    whisperModel,
+    parakeetModel,
+    cloudTranscriptionMode,
+    cloudTranscriptionModel,
+    openaiApiKey,
+  } = getSettings();
+
+  if (useLocalWhisper) {
+    return {
+      provider: "local" as const,
+      localProvider: localTranscriptionProvider,
+      localModel:
+        localTranscriptionProvider === "nvidia"
+          ? parakeetModel || "parakeet-tdt-0.6b-v3"
+          : whisperModel || "base",
+    };
+  }
+
   const model = REALTIME_MODELS.has(cloudTranscriptionModel)
     ? cloudTranscriptionModel
     : "gpt-4o-mini-transcribe";
@@ -90,7 +110,7 @@ registerProcessor("meeting-pcm-processor", MeetingPCMProcessor);
 const getMeetingMicConstraints = async (): Promise<MediaStreamConstraints> => {
   const { preferBuiltInMic, selectedMicDeviceId } = getSettings();
   const micProcessing = {
-    echoCancellation: false,
+    echoCancellation: true,
     noiseSuppression: false,
     autoGainControl: false,
   };

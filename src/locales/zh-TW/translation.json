@@ -7,6 +7,14 @@
       "uiDescription": "選擇 OpenWhispr 介面使用的語言",
       "transcriptionLabel": "轉錄語言",
       "transcriptionDescription": "選擇你說話的語言，以提高轉錄準確度"
+    },
+    "noteFiles": {
+      "title": "將筆記儲存為檔案",
+      "description": "自動將筆記儲存為 .md 檔案到磁碟，按資料夾分類",
+      "path": "儲存位置",
+      "changePath": "變更位置",
+      "rebuild": "重建所有檔案",
+      "rebuildDescription": "將所有筆記重新同步到磁碟"
     }
   },
   "tray": {
@@ -22,6 +30,7 @@
     "appLabel": "OpenWhispr",
     "quit": "結束 OpenWhispr",
     "speech": "語音",
+    "settings": "設定...",
     "help": "說明",
     "learnMore": "瞭解更多",
     "file": "檔案",
@@ -959,15 +968,15 @@
           "period": "永久",
           "features": [
             "## OpenWhispr Cloud",
-            "2,000 words/week transcription",
-            "5 hours of meeting recordings/month",
-            "## Always free",
-            "Unlimited local AI models",
-            "Unlimited cloud transcription with your own API keys",
-            "100+ languages supported",
-            "Custom dictionary",
-            "Zero data retention",
-            "Community support"
+            "每週 2,000 字轉錄",
+            "每月 5 小時會議錄製",
+            "## 永久免費",
+            "無限本地 AI 模型",
+            "使用自己的 API 金鑰無限雲端轉錄",
+            "支援 100+ 種語言",
+            "自訂詞典",
+            "零資料留存",
+            "社群支援"
           ]
         },
         "pro": {
@@ -979,10 +988,10 @@
           "annualEquivalent": "$6.67",
           "includesPrefix": "所有 Free 功能 +",
           "features": [
-            "Unlimited cloud transcription",
-            "20 hours of meeting recordings/month",
-            "Mobile app (iOS Coming Soon)",
-            "Email support"
+            "無限雲端轉錄",
+            "每月 20 小時會議錄製",
+            "行動應用程式（iOS 即將推出）",
+            "電子郵件支援"
           ],
           "cta": "開始使用",
           "switchToAnnual": "切換為年付"
@@ -996,28 +1005,23 @@
           "annualEquivalent": "$16.67",
           "includesPrefix": "所有 Pro 功能 +",
           "badge": "最熱門",
-          "features": [
-            "Unlimited meeting recordings",
-            "Agent mode",
-            "Chat over your data (Coming Soon)",
-            "Priority support"
-          ],
+          "features": ["無限會議錄製", "代理模式", "與您的資料對話（即將推出）", "優先支援"],
           "cta": "開始使用",
           "switchToAnnual": "切換為年付"
         },
         "enterprise": {
           "name": "Enterprise",
           "price": "自訂",
-          "subtitle": "For advanced security & support",
+          "subtitle": "提供進階安全保障與支援",
           "includesPrefix": "所有 Business 功能 +",
           "features": [
-            "Managed API credits",
-            "Cloud sync across devices",
-            "Team features & admin",
-            "SSO & compliance",
-            "Dedicated support"
+            "託管 API 額度",
+            "跨裝置雲端同步",
+            "團隊功能與管理",
+            "SSO 與合規",
+            "專屬支援"
           ],
-          "cta": "Contact Sales"
+          "cta": "聯繫銷售"
         },
         "currentPlan": "目前方案",
         "upgrade": "升級",
@@ -1394,6 +1398,16 @@
           "description": "設定你自己的供應商和 API Key。",
           "title": "已切換至自訂設定"
         }
+      },
+      "gpuDevice": {
+        "title": "轉錄 GPU",
+        "description": "用於本機語音辨識的 GPU"
+      }
+    },
+    "intelligence": {
+      "gpuDevice": {
+        "title": "Intelligence GPU",
+        "description": "用於本機 AI 處理的 GPU"
       }
     }
   },
@@ -1541,6 +1555,11 @@
     }
   },
   "notes": {
+    "sidebar": {
+      "newNote": "新增筆記",
+      "searchNotes": "搜尋筆記",
+      "actions": "動作"
+    },
     "folders": {
       "title": "資料夾",
       "soon": "即將推出",
@@ -1571,13 +1590,23 @@
       "raw": "原始",
       "enhanced": "已增強",
       "saving": "儲存中",
-      "wordsCount": "{{count}} 個字",
       "startWriting": "開始撰寫...",
       "staleIndicator": "內容在增強後已變更",
       "live": "即時",
       "transcript": "轉錄",
       "notes": "筆記",
-      "conversationWillAppear": "對話將顯示在這裡..."
+      "conversationWillAppear": "對話將顯示在這裡...",
+      "linkedEvent": "關聯行程",
+      "noFolder": "無資料夾",
+      "participants": "參與者"
+    },
+    "participants": {
+      "attendee": "位與會者",
+      "attendees": "位與會者",
+      "addAttendees": "新增與會者",
+      "addPlaceholder": "新增與會者...",
+      "typeEmail": "輸入電子郵件以新增...",
+      "me": "（我）"
     },
     "upload": {
       "title": "上傳音訊",
@@ -1635,7 +1664,8 @@
       "rename": "重新命名",
       "searchFolders": "搜尋資料夾...",
       "noResults": "找不到資料夾",
-      "newFolder": "新增資料夾"
+      "newFolder": "新增資料夾",
+      "showInFileManager": "在{{manager}}中顯示"
     },
     "actions": {
       "manage": "管理動作...",
@@ -1650,6 +1680,9 @@
       "update": "更新",
       "cancel": "取消",
       "noActions": "尚無自訂動作",
+      "promptLabel": "提示詞",
+      "emptyEditorTitle": "選擇動作",
+      "emptyEditorDescription": "從列表中選擇一個動作或建立新動作",
       "runAction": "執行 {{name}}",
       "selectAction": "選擇動作",
       "done": "完成",
@@ -1744,7 +1777,30 @@
     "learnMore": "瞭解更多",
     "integrations": "整合",
     "defaultUser": "使用者",
-    "notSignedIn": "尚未登入"
+    "notSignedIn": "尚未登入",
+    "chat": "聊天"
+  },
+  "chat": {
+    "newChat": "新對話",
+    "search": "搜尋對話...",
+    "archived": "已封存",
+    "noConversations": "開始你的第一個對話",
+    "selectChat": "選擇一個對話或開始新的對話",
+    "noResults": "沒有符合的對話",
+    "today": "今天",
+    "yesterday": "昨天",
+    "previousWeek": "最近 7 天",
+    "older": "更早",
+    "archive": "封存",
+    "unarchive": "取消封存",
+    "delete": "刪除",
+    "deleteConfirm": "此對話將被永久刪除，無法復原。",
+    "editTitle": "雙擊編輯標題",
+    "untitled": "無標題",
+    "searchChats": "搜尋聊天",
+    "searchTitle": "搜尋對話",
+    "searchDescription": "搜尋所有對話",
+    "newChatEmpty": "詢問關於筆記、轉錄或其他任何內容"
   },
   "usage": {
     "approachingLimit": "即將達到每週上限",
@@ -1856,7 +1912,7 @@
       "newConversation": "新建",
       "copyToClipboard": "複製到剪貼簿",
       "copied": "已複製！",
-      "emptyState": "按住 {{hotkey}} 開始對話",
+      "emptyState": "隨便問我",
       "errorPrefix": "錯誤"
     },
     "titleBar": {
@@ -1869,7 +1925,30 @@
       "toClose": "關閉",
       "listening": "正在聆聽...",
       "transcribing": "正在轉錄...",
-      "thinking": "正在思考..."
+      "thinking": "正在思考...",
+      "typeMessage": "輸入訊息...",
+      "send": "傳送"
+    },
+    "tools": {
+      "search_notesStatus": "正在搜尋筆記...",
+      "web_searchStatus": "正在搜尋網頁...",
+      "copy_to_clipboardStatus": "正在複製到剪貼簿...",
+      "get_calendar_eventsStatus": "正在查看行事曆...",
+      "get_noteStatus": "正在讀取筆記...",
+      "create_noteStatus": "正在建立筆記...",
+      "update_noteStatus": "正在更新筆記...",
+      "copiedToClipboard": "已複製到剪貼簿",
+      "foundNotes": "找到 {{count}} 則筆記",
+      "foundNotes_plural": "找到 {{count}} 則筆記",
+      "searchResults": "找到 {{count}} 項結果",
+      "searchResults_plural": "找到 {{count}} 項結果",
+      "openNote": "開啟筆記",
+      "calendarEvents": "找到 {{count}} 個行程",
+      "calendarEvents_plural": "找到 {{count}} 個行程",
+      "noResults": "未找到結果",
+      "error": "工具錯誤",
+      "unknownTool": "未知工具：{{name}}",
+      "invalidArgs": "{{name}} 的工具參數無效"
     }
   },
   "integrations": {
@@ -2058,5 +2137,16 @@
       "createFailed": "無法建立 API 金鑰",
       "revokeFailed": "無法撤銷 API 金鑰"
     }
+  },
+  "embeddedChat": {
+    "askPlaceholder": "隨便問點什麼...",
+    "send": "傳送",
+    "title": "聊天",
+    "emptyState": "就這條筆記提個問題",
+    "dock": "固定到側邊欄",
+    "undock": "從側邊欄取消固定",
+    "close": "關閉聊天",
+    "newChat": "新對話",
+    "conversationSelector": "切換對話"
   }
 }

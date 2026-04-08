@@ -45,6 +45,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
   - **Google**: Gemini 3.1 Pro, Gemini 3 Flash, Gemini 2.5 Flash Lite
   - **Groq**: Ultra-fast inference with Llama and Mixtral models
   - **Local**: Qwen, LLaMA, Mistral, Gemma models via llama.cpp
+- 🛠️ **Agent Tool Calling**: Agentic tools for searching, creating, and updating notes — with RAG context injection for local models
 - 🤖 **AI Actions**: Apply AI-powered actions to notes with customizable processing templates
 
 ### Meeting Transcription
@@ -59,8 +60,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - 📝 **Notes System**: Create, edit, and organize notes with folders, audio upload, and real-time dictation
 - 🔎 **Full-Text Search**: FTS5-powered search across all note content with Cmd+K command palette
+- 🧠 **Local Semantic Search**: Always-on Qdrant vector DB with MiniLM embeddings for offline meaning-based search across notes
 - ☁️ **Cloud Sync**: Local-first storage with cloud backup and semantic search
+- 💬 **Embedded Chat**: Chat panel in the note editor with floating and sidebar modes
 - 📁 **Folder Organization**: Organize notes into custom folders with drag-and-drop
+- 💾 **Save Notes as Files**: Export notes to the local filesystem as Markdown files, mirroring your folder hierarchy
 
 ### Cloud & Account
 
@@ -73,6 +77,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - 🌐 **Cross-Platform**: Works on macOS, Windows, and Linux
 - 🎨 **Modern UI**: Built with React 19, TypeScript, and Tailwind CSS v4
+- 📱 **Responsive Settings**: Settings dialog adapts to narrow windows with collapsible icon-rail sidebar and stacked layouts
 - 🖱️ **Draggable Interface**: Move the dictation panel anywhere on your screen with configurable start position
 - 🌐 **Globe Key Toggle (macOS)**: Optional Fn/Globe key listener for a hardware-level dictation trigger — no Input Monitoring permission required
 - ⌨️ **Compound Hotkeys**: Support for multi-key combinations like `Cmd+Shift+K`
@@ -849,7 +854,7 @@ A: No. As of v1.6.0, OpenWhispr uses NSEvent monitors instead of CGEvent taps, e
 
 ## Project Status
 
-OpenWhispr is actively maintained and ready for production use. Current version: 1.6.6
+OpenWhispr is actively maintained and ready for production use. Current version: 1.6.7
 
 - ✅ Core dictation with local and cloud processing
 - ✅ Cross-platform support (macOS, Windows, Linux)

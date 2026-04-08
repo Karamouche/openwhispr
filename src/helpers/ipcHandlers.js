@@ -117,8 +117,10 @@ class IPCHandlers {
     this._activeRecordingPipeline = null;
     this.audioStorageManager = new AudioStorageManager();
     this._audioCleanupInterval = null;
+    this._noteFilesEnabled = false;
     this._setupTextEditMonitor();
     this._setupAudioCleanup();
+    this._logDetectedGpus();
     this.setupHandlers();
 
     if (this.whisperManager?.serverManager) {
@@ -126,6 +128,64 @@ class IPCHandlers {
         this.broadcastToWindows("cuda-fallback-notification", {});
       });
     }
+  }
+
+  _asyncVectorUpsert(note) {
+    setImmediate(() => {
+      const vectorIndex = require("./vectorIndex");
+      if (!vectorIndex.isReady()) return;
+      const { LocalEmbeddings } = require("./localEmbeddings");
+      const text = LocalEmbeddings.noteEmbedText(note.title, note.content, note.enhanced_content);
+      vectorIndex.upsertNote(note.id, text).catch(() => {});
+    });
+  }
+
+  _asyncVectorDelete(noteId) {
+    setImmediate(() => {
+      const vectorIndex = require("./vectorIndex");
+      if (!vectorIndex.isReady()) return;
+      vectorIndex.deleteNote(noteId).catch(() => {});
+    });
+  }
+
+  _asyncMirrorWrite(note) {
+    if (!this._noteFilesEnabled) return;
+    setImmediate(() => {
+      const markdownMirror = require("./markdownMirror");
+      const folderName = this._getFolderName(note.folder_id);
+      markdownMirror.writeNote(note, folderName);
+    });
+  }
+
+  _asyncMirrorDelete(noteId) {
+    if (!this._noteFilesEnabled) return;
+    setImmediate(() => {
+      const markdownMirror = require("./markdownMirror");
+      markdownMirror.deleteNote(noteId);
+    });
+  }
+
+  _buildFolderMap() {
+    const folders = this.databaseManager.getFolders();
+    const map = {};
+    for (const f of folders) {
+      map[f.id] = f.name;
+    }
+    return map;
+  }
+
+  _rebuildMirror(basePath) {
+    const markdownMirror = require("./markdownMirror");
+    if (basePath) markdownMirror.init(basePath);
+    markdownMirror.rebuildAll(this.databaseManager.getNotes(null, 99999), this._buildFolderMap());
+  }
+
+  _getFolderName(folderId) {
+    if (!folderId) return "Personal";
+    const folder = this.databaseManager.db
+      .prepare("SELECT name FROM folders WHERE id = ?")
+      .get(folderId);
+    return folder?.name || "Personal";
   }
 
   _getDictionarySafe() {
@@ -161,6 +221,20 @@ class IPCHandlers {
     if (this.textEditMonitor && this._textEditHandler) {
       this.textEditMonitor.removeListener("text-edited", this._textEditHandler);
       this._textEditHandler = null;
+    }
+  }
+
+  async _logDetectedGpus() {
+    const { listNvidiaGpus } = require("../utils/gpuDetection");
+    const gpus = await listNvidiaGpus();
+    if (gpus.length > 0) {
+      debugLogger.info(
+        "NVIDIA GPUs detected",
+        { count: gpus.length, devices: gpus.map((g) => `${g.name} (${g.vramMb}MB)`) },
+        "gpu"
+      );
+    } else {
+      debugLogger.debug("No NVIDIA GPUs detected", {}, "gpu");
     }
   }
 
@@ -542,9 +616,9 @@ class IPCHandlers {
           folderId
         );
         if (result?.success && result?.note) {
-          setImmediate(() => {
-            this.broadcastToWindows("note-added", result.note);
-          });
+          setImmediate(() => this.broadcastToWindows("note-added", result.note));
+          this._asyncVectorUpsert(result.note);
+          this._asyncMirrorWrite(result.note);
         }
         return result;
       }
@@ -561,9 +635,9 @@ class IPCHandlers {
     ipcMain.handle("db-update-note", async (event, id, updates) => {
       const result = this.databaseManager.updateNote(id, updates);
       if (result?.success && result?.note) {
-        setImmediate(() => {
-          this.broadcastToWindows("note-updated", result.note);
-        });
+        setImmediate(() => this.broadcastToWindows("note-updated", result.note));
+        this._asyncVectorUpsert(result.note);
+        this._asyncMirrorWrite(result.note);
       }
       return result;
     });
@@ -571,15 +645,73 @@ class IPCHandlers {
     ipcMain.handle("db-delete-note", async (event, id) => {
       const result = this.databaseManager.deleteNote(id);
       if (result?.success) {
-        setImmediate(() => {
-          this.broadcastToWindows("note-deleted", { id });
-        });
+        setImmediate(() => this.broadcastToWindows("note-deleted", { id }));
+        this._asyncVectorDelete(id);
+        this._asyncMirrorDelete(id);
       }
       return result;
     });
 
     ipcMain.handle("db-search-notes", async (event, query, limit) => {
       return this.databaseManager.searchNotes(query, limit);
+    });
+
+    ipcMain.handle("db-semantic-search-notes", async (event, query, limit = 5) => {
+      const vectorIndex = require("./vectorIndex");
+      if (!vectorIndex.isReady()) {
+        return this.databaseManager.searchNotes(query, limit);
+      }
+
+      try {
+        const [ftsResults, vectorResults] = await Promise.all([
+          this.databaseManager.searchNotes(query, limit * 2),
+          vectorIndex.search(query, limit * 2),
+        ]);
+
+        // Filter low-confidence semantic matches before RRF
+        const filteredVectorResults = vectorResults.filter(({ score }) => score > 0.3);
+
+        // Reciprocal Rank Fusion (K=60, matching cloud implementation)
+        const scores = new Map();
+        ftsResults.forEach((note, i) => {
+          scores.set(note.id, (scores.get(note.id) || 0) + 1 / (60 + i));
+        });
+        filteredVectorResults.forEach(({ noteId }, i) => {
+          scores.set(noteId, (scores.get(noteId) || 0) + 1 / (60 + i));
+        });
+
+        const rankedIds = [...scores.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, limit)
+          .map(([id]) => id);
+
+        const noteMap = new Map();
+        ftsResults.forEach((n) => noteMap.set(n.id, n));
+        for (const id of rankedIds) {
+          if (!noteMap.has(id)) {
+            const note = this.databaseManager.getNote(id);
+            if (note) noteMap.set(id, note);
+          }
+        }
+
+        return rankedIds.map((id) => noteMap.get(id)).filter(Boolean);
+      } catch (error) {
+        debugLogger.error("Semantic search failed, falling back to FTS5", { error: error.message });
+        return this.databaseManager.searchNotes(query, limit);
+      }
+    });
+
+    ipcMain.handle("db-semantic-reindex-all", async () => {
+      const vectorIndex = require("./vectorIndex");
+      if (!vectorIndex.isReady()) return { success: false, error: "Vector index not ready" };
+
+      const notes = this.databaseManager.getNotes(null, 100000);
+      let done = 0;
+      await vectorIndex.reindexAll(notes, (completed, total) => {
+        done = completed;
+        this.broadcastToWindows("semantic-reindex-progress", { done: completed, total });
+      });
+      return { success: true, indexed: done };
     });
 
     ipcMain.handle("db-update-note-cloud-id", async (event, id, cloudId) => {
@@ -595,26 +727,40 @@ class IPCHandlers {
       if (result?.success && result?.folder) {
         setImmediate(() => {
           this.broadcastToWindows("folder-created", result.folder);
+          if (this._noteFilesEnabled) {
+            const markdownMirror = require("./markdownMirror");
+            markdownMirror.ensureFolder(result.folder.name);
+          }
         });
       }
       return result;
     });
 
     ipcMain.handle("db-delete-folder", async (event, id) => {
+      const folderName = this._noteFilesEnabled ? this._getFolderName(id) : null;
       const result = this.databaseManager.deleteFolder(id);
       if (result?.success) {
         setImmediate(() => {
           this.broadcastToWindows("folder-deleted", { id });
+          if (this._noteFilesEnabled && folderName) {
+            const markdownMirror = require("./markdownMirror");
+            markdownMirror.deleteFolder(folderName, "Personal");
+          }
         });
       }
       return result;
     });
 
     ipcMain.handle("db-rename-folder", async (event, id, name) => {
+      const oldName = this._noteFilesEnabled ? this._getFolderName(id) : null;
       const result = this.databaseManager.renameFolder(id, name);
       if (result?.success && result?.folder) {
         setImmediate(() => {
           this.broadcastToWindows("folder-renamed", result.folder);
+          if (this._noteFilesEnabled && oldName) {
+            const markdownMirror = require("./markdownMirror");
+            markdownMirror.renameFolder(oldName, name);
+          }
         });
       }
       return result;
@@ -663,8 +809,12 @@ class IPCHandlers {
     });
 
     // Agent conversation handlers
-    ipcMain.handle("db-create-agent-conversation", async (event, title) => {
-      return this.databaseManager.createAgentConversation(title);
+    ipcMain.handle("db-create-agent-conversation", async (event, title, noteId) => {
+      return this.databaseManager.createAgentConversation(title, noteId);
+    });
+
+    ipcMain.handle("db-get-conversations-for-note", async (event, noteId, limit) => {
+      return this.databaseManager.getConversationsForNote(noteId, limit);
     });
 
     ipcMain.handle("db-get-agent-conversations", async (event, limit) => {
@@ -676,19 +826,90 @@ class IPCHandlers {
     });
 
     ipcMain.handle("db-delete-agent-conversation", async (event, id) => {
-      return this.databaseManager.deleteAgentConversation(id);
+      const result = this.databaseManager.deleteAgentConversation(id);
+      if (this.vectorIndex?.isReady?.()) {
+        this.vectorIndex.deleteConversationChunks(id).catch(() => {});
+      }
+      return result;
     });
 
     ipcMain.handle("db-update-agent-conversation-title", async (event, id, title) => {
       return this.databaseManager.updateAgentConversationTitle(id, title);
     });
 
-    ipcMain.handle("db-add-agent-message", async (event, conversationId, role, content) => {
-      return this.databaseManager.addAgentMessage(conversationId, role, content);
-    });
+    ipcMain.handle(
+      "db-add-agent-message",
+      async (event, conversationId, role, content, metadata) => {
+        const result = this.databaseManager.addAgentMessage(
+          conversationId,
+          role,
+          content,
+          metadata
+        );
+        if (this.vectorIndex?.isReady?.()) {
+          const conv = this.databaseManager.getAgentConversation(conversationId);
+          if (conv && conv.messages?.length % 3 === 0) {
+            this.vectorIndex
+              .upsertConversationChunks(conversationId, conv.title, conv.messages)
+              .catch(() => {});
+          }
+        }
+        return result;
+      }
+    );
 
     ipcMain.handle("db-get-agent-messages", async (event, conversationId) => {
       return this.databaseManager.getAgentMessages(conversationId);
+    });
+
+    ipcMain.handle(
+      "db-get-agent-conversations-with-preview",
+      async (event, limit, offset, includeArchived) => {
+        return this.databaseManager.getAgentConversationsWithPreview(
+          limit,
+          offset,
+          includeArchived
+        );
+      }
+    );
+
+    ipcMain.handle("db-search-agent-conversations", async (event, query, limit) => {
+      return this.databaseManager.searchAgentConversations(query, limit);
+    });
+
+    ipcMain.handle("db-archive-agent-conversation", async (event, id) => {
+      return this.databaseManager.archiveAgentConversation(id);
+    });
+
+    ipcMain.handle("db-unarchive-agent-conversation", async (event, id) => {
+      return this.databaseManager.unarchiveAgentConversation(id);
+    });
+
+    ipcMain.handle("db-update-agent-conversation-cloud-id", async (event, id, cloudId) => {
+      return this.databaseManager.updateAgentConversationCloudId(id, cloudId);
+    });
+
+    ipcMain.handle("db-semantic-search-conversations", async (event, query, limit) => {
+      if (this.vectorIndex?.isReady?.()) {
+        try {
+          const vectorResults = await this.vectorIndex.searchConversations(query, limit);
+          if (vectorResults?.length > 0) {
+            const ids = vectorResults.map((r) => r.conversationId);
+            const previews = ids
+              .map((id) => this.databaseManager.getAgentConversation(id))
+              .filter(Boolean)
+              .map((c) => ({
+                ...c,
+                message_count: c.messages?.length ?? 0,
+                last_message: c.messages?.[c.messages.length - 1]?.content,
+              }));
+            if (previews.length > 0) return previews;
+          }
+        } catch {
+          // fall through to keyword search
+        }
+      }
+      return this.databaseManager.searchAgentConversations(query, limit);
     });
 
     ipcMain.handle("export-note", async (event, noteId, format) => {
@@ -983,6 +1204,78 @@ class IPCHandlers {
     ipcMain.handle("detect-gpu", async () => {
       const { detectNvidiaGpu } = require("../utils/gpuDetection");
       return detectNvidiaGpu();
+    });
+
+    ipcMain.handle("list-gpus", async () => {
+      const { listNvidiaGpus } = require("../utils/gpuDetection");
+      return listNvidiaGpus();
+    });
+
+    ipcMain.handle("set-gpu-device-index", async (_event, purpose, index) => {
+      if (purpose !== "transcription" && purpose !== "intelligence") {
+        return { success: false };
+      }
+      const parsed = parseInt(index, 10);
+      if (isNaN(parsed) || parsed < 0) {
+        return { success: false };
+      }
+      const idx = String(parsed);
+      const key = purpose === "intelligence" ? "INTELLIGENCE_GPU_INDEX" : "TRANSCRIPTION_GPU_INDEX";
+      const oldIdx = process.env[key] || "0";
+      process.env[key] = idx;
+      this.environmentManager.saveAllKeysToEnvFile().catch((err) => {
+        debugLogger.error("Failed to persist GPU index", { error: err.message }, "gpu");
+      });
+
+      if (oldIdx !== idx) {
+        try {
+          if (purpose === "transcription" && this.whisperManager?.serverManager?.process) {
+            debugLogger.info(
+              "Restarting whisper-server for GPU change",
+              { from: oldIdx, to: idx },
+              "gpu"
+            );
+            const modelName = this.whisperManager.currentServerModel;
+            await this.whisperManager.stopServer();
+            if (modelName) {
+              await this.whisperManager.startServer(modelName, {
+                useCuda: !!process.env.WHISPER_CUDA_ENABLED,
+              });
+            }
+          }
+          if (purpose === "intelligence") {
+            const modelManager = require("./modelManagerBridge").default;
+            if (modelManager.serverManager?.process) {
+              debugLogger.info(
+                "Restarting llama-server for GPU change",
+                { from: oldIdx, to: idx },
+                "gpu"
+              );
+              const modelPath = modelManager.serverManager.modelPath;
+              await modelManager.serverManager.stop();
+              if (modelPath) {
+                await modelManager.serverManager.start(modelPath);
+              }
+            }
+          }
+        } catch (err) {
+          debugLogger.error(
+            "Failed to restart server after GPU change",
+            { error: err.message, purpose },
+            "gpu"
+          );
+        }
+      }
+
+      return { success: true };
+    });
+
+    ipcMain.handle("get-gpu-device-index", async (_event, purpose) => {
+      if (purpose !== "transcription" && purpose !== "intelligence") {
+        return "0";
+      }
+      const key = purpose === "intelligence" ? "INTELLIGENCE_GPU_INDEX" : "TRANSCRIPTION_GPU_INDEX";
+      return process.env[key] || "0";
     });
 
     ipcMain.handle("get-cuda-whisper-status", async () => {
@@ -1404,6 +1697,19 @@ class IPCHandlers {
         isUsingKDE: this.windowManager.isUsingKDEHotkeys(),
         isUsingNativeShortcut: this.windowManager.isUsingNativeShortcutHotkeys(),
       };
+    });
+
+    ipcMain.handle("register-cancel-hotkey", async (event, key) => {
+      const hotkeyManager = this.windowManager.hotkeyManager;
+      const mainWindow = this.windowManager.mainWindow;
+      return hotkeyManager.registerSlot("cancel", key, () => {
+        mainWindow?.webContents?.send("cancel-hotkey-pressed");
+      });
+    });
+
+    ipcMain.handle("unregister-cancel-hotkey", async () => {
+      this.windowManager.hotkeyManager.unregisterSlot("cancel");
+      return { success: true };
     });
 
     ipcMain.handle("start-window-drag", async (event) => {
@@ -2077,7 +2383,7 @@ class IPCHandlers {
       return { granted: status === "granted", status };
     });
 
-    ipcMain.handle("check-system-audio-access", () => {
+    ipcMain.handle("check-system-audio-access", async () => {
       if (process.platform !== "darwin") {
         return { granted: true, status: "granted", mode: "unsupported" };
       }
@@ -2086,10 +2392,8 @@ class IPCHandlers {
         return { granted: false, status: "unsupported", mode: "unsupported" };
       }
 
-      const screenStatus = systemPreferences.getMediaAccessStatus("screen");
-      const tapStatus = this.audioTapManager.getPermissionStatus();
-      const granted = screenStatus === "granted" || tapStatus === "granted";
-      return { granted, status: granted ? "granted" : screenStatus, mode: "native" };
+      const result = await this.audioTapManager.verifyAccess();
+      return { granted: result.granted, status: result.status, mode: "native" };
     });
 
     ipcMain.handle("request-system-audio-access", async () => {
@@ -2101,12 +2405,7 @@ class IPCHandlers {
         return { granted: false, status: "unsupported", mode: "unsupported" };
       }
 
-      const screenStatus = systemPreferences.getMediaAccessStatus("screen");
-      if (screenStatus === "granted") {
-        return { granted: true, status: "granted", mode: "native" };
-      }
-
-      // Probe the binary — AudioHardwareCreateProcessTap triggers the native consent dialog
+      // Probe the binary — AudioHardwareCreateProcessTap triggers the native consent dialog.
       try {
         const result = await this.audioTapManager.requestAccess();
         if (result.granted) {
@@ -2118,7 +2417,8 @@ class IPCHandlers {
 
       // Fallback for older macOS or if the native prompt was denied
       await openSystemSettings("systemAudio");
-      return { granted: false, status: screenStatus, mode: "native" };
+      const status = this.audioTapManager.getPermissionStatus();
+      return { granted: false, status, mode: "native" };
     });
 
     // Auth: clear all session cookies for sign-out.
@@ -2585,6 +2885,134 @@ class IPCHandlers {
 
     let meetingSendCounts = { mic: 0, system: 0 };
 
+    // Meeting mic captures at 24kHz (for OpenAI Realtime), but local engines
+    // expect 16kHz. Downsample with linear interpolation (3:2 ratio).
+    const downsample24kTo16k = (pcmBuffer) => {
+      const input = new Int16Array(pcmBuffer.buffer, pcmBuffer.byteOffset, pcmBuffer.length / 2);
+      const ratio = 1.5; // 24000 / 16000
+      const outputLength = Math.floor(input.length / ratio);
+      const output = new Int16Array(outputLength);
+      for (let i = 0; i < outputLength; i++) {
+        const srcIdx = i * ratio;
+        const idx = Math.floor(srcIdx);
+        const frac = srcIdx - idx;
+        const s0 = input[idx];
+        const s1 = idx + 1 < input.length ? input[idx + 1] : s0;
+        output[i] = Math.round(s0 + frac * (s1 - s0));
+      }
+      return Buffer.from(output.buffer);
+    };
+
+    const pcm16ToWav = (pcmBuffer, sampleRate = 16000, channels = 1) => {
+      const dataSize = pcmBuffer.length;
+      const header = Buffer.alloc(44);
+      header.write("RIFF", 0);
+      header.writeUInt32LE(36 + dataSize, 4);
+      header.write("WAVE", 8);
+      header.write("fmt ", 12);
+      header.writeUInt32LE(16, 16);
+      header.writeUInt16LE(1, 20);
+      header.writeUInt16LE(channels, 22);
+      header.writeUInt32LE(sampleRate, 24);
+      header.writeUInt32LE(sampleRate * channels * 2, 28);
+      header.writeUInt16LE(channels * 2, 32);
+      header.writeUInt16LE(16, 34);
+      header.write("data", 36);
+      header.writeUInt32LE(dataSize, 40);
+      return Buffer.concat([header, pcmBuffer]);
+    };
+
+    let meetingLocalMode = false;
+    let meetingLocalBuffers = { mic: [], system: [] };
+    let meetingLocalTimer = null;
+    let meetingLocalWin = null;
+    let meetingLocalTranscript = "";
+    let meetingLocalProvider = null;
+    let meetingLocalModel = null;
+    let meetingLocalTranscribing = false;
+
+    const transcribeLocalMeetingChunk = async (source) => {
+      const chunks = meetingLocalBuffers[source];
+      if (!chunks.length) return;
+
+      const pcm24k = Buffer.concat(chunks);
+      meetingLocalBuffers[source] = [];
+
+      const pcm16k = downsample24kTo16k(pcm24k);
+
+      // Skip silent/near-silent chunks to prevent Whisper hallucinations
+      const samples = new Int16Array(pcm16k.buffer, pcm16k.byteOffset, pcm16k.length / 2);
+      let sumSq = 0;
+      for (let i = 0; i < samples.length; i++) {
+        const n = samples[i] / 0x7fff;
+        sumSq += n * n;
+      }
+      const rms = Math.sqrt(sumSq / samples.length);
+      if (rms < 0.005) return;
+
+      const wav = pcm16ToWav(pcm16k);
+
+      try {
+        let result;
+        if (meetingLocalProvider === "nvidia") {
+          result = await this.parakeetManager.transcribeLocalParakeet(wav, {
+            model: meetingLocalModel,
+          });
+        } else {
+          result = await this.whisperManager.transcribeLocalWhisper(wav, {
+            model: meetingLocalModel,
+          });
+        }
+
+        if (result?.success && result.text?.trim()) {
+          const text = result.text.trim();
+          meetingLocalTranscript += (meetingLocalTranscript ? " " : "") + text;
+
+          if (meetingLocalWin && !meetingLocalWin.isDestroyed()) {
+            meetingLocalWin.webContents.send("meeting-transcription-segment", {
+              text,
+              source,
+              type: "final",
+              timestamp: Date.now(),
+            });
+          }
+        }
+      } catch (error) {
+        debugLogger.error("Local meeting transcription chunk failed", {
+          source,
+          error: error.message,
+        });
+        if (meetingLocalWin && !meetingLocalWin.isDestroyed()) {
+          meetingLocalWin.webContents.send("meeting-transcription-error", error.message);
+        }
+      }
+    };
+
+    const transcribeAllLocalBuffers = async () => {
+      if (meetingLocalTranscribing) return;
+      meetingLocalTranscribing = true;
+      try {
+        await transcribeLocalMeetingChunk("mic");
+        await transcribeLocalMeetingChunk("system");
+      } finally {
+        meetingLocalTranscribing = false;
+      }
+    };
+
+    const resetMeetingLocalState = () => {
+      if (meetingLocalTimer) {
+        clearInterval(meetingLocalTimer);
+        meetingLocalTimer = null;
+      }
+      meetingLocalMode = false;
+      meetingLocalBuffers = { mic: [], system: [] };
+      meetingLocalWin = null;
+      meetingLocalTranscript = "";
+      meetingLocalProvider = null;
+      meetingLocalModel = null;
+      meetingLocalTranscribing = false;
+    };
+
     const resetMeetingStreamingState = () => {
       this._meetingMicStreaming = null;
       this._meetingSystemStreaming = null;
@@ -2609,6 +3037,7 @@ class IPCHandlers {
       if (this.audioTapManager) {
         await this.audioTapManager.stop().catch(() => {});
       }
+      resetMeetingLocalState();
       await disconnectMeetingStreaming().catch(() => {});
     };
 
@@ -2650,6 +3079,10 @@ class IPCHandlers {
         return { success: true, alreadyPrepared: true };
       }
 
+      if (options.provider === "local") {
+        return { success: true };
+      }
+
       if (options.provider !== "openai-realtime") {
         return { success: false, error: `Unsupported provider: ${options.provider}` };
       }
@@ -2689,7 +3122,7 @@ class IPCHandlers {
         const systemAudioMode = getMeetingSystemAudioMode();
 
         // If already prepared (warm connections from prepare), just re-attach handlers
-        if (isMeetingStreamingConnected()) {
+        if (!meetingLocalMode && isMeetingStreamingConnected()) {
           debugLogger.debug("Meeting transcription start: reusing warm connections");
           const win = BrowserWindow.fromWebContents(event.sender);
           attachMeetingStreamingHandlers(this._meetingMicStreaming, win, "mic");
@@ -2697,6 +3130,30 @@ class IPCHandlers {
             attachMeetingStreamingHandlers(this._meetingSystemStreaming, win, "system");
             await startNativeMeetingSystemAudio(event);
           }
+          return { success: true, systemAudioMode };
+        }
+
+        if (options.provider === "local") {
+          meetingLocalMode = true;
+          meetingLocalProvider = options.localProvider || "whisper";
+          meetingLocalModel = options.localModel || null;
+          meetingLocalWin = BrowserWindow.fromWebContents(event.sender);
+          meetingLocalBuffers = { mic: [], system: [] };
+          meetingLocalTranscript = "";
+
+          meetingLocalTimer = setInterval(() => {
+            transcribeAllLocalBuffers();
+          }, 5000);
+
+          if (systemAudioMode === "native") {
+            await startNativeMeetingSystemAudio(event);
+          }
+
+          debugLogger.debug("Meeting transcription started in local mode", {
+            provider: meetingLocalProvider,
+            systemAudioMode,
+          });
+
           return { success: true, systemAudioMode };
         }
 
@@ -2719,6 +3176,12 @@ class IPCHandlers {
     });
 
     const sendMeetingAudio = (audioBuffer, source) => {
+      if (meetingLocalMode) {
+        const buf = Buffer.isBuffer(audioBuffer) ? audioBuffer : Buffer.from(audioBuffer);
+        meetingLocalBuffers[source].push(buf);
+        return;
+      }
+
       const streaming = source === "mic" ? this._meetingMicStreaming : this._meetingSystemStreaming;
       if (!streaming) {
         if (meetingSendCounts[source] === 0) {
@@ -2763,6 +3226,21 @@ class IPCHandlers {
       try {
         if (this.audioTapManager) {
           await this.audioTapManager.stop();
+        }
+
+        if (meetingLocalMode) {
+          if (meetingLocalTimer) {
+            clearInterval(meetingLocalTimer);
+            meetingLocalTimer = null;
+          }
+          try {
+            await transcribeAllLocalBuffers();
+          } catch (err) {
+            debugLogger.error("Local meeting final transcription failed", { error: err.message });
+          }
+          const transcript = meetingLocalTranscript;
+          resetMeetingLocalState();
+          return { success: true, transcript };
         }
 
         const results = await disconnectMeetingStreaming();
@@ -2906,19 +3384,13 @@ class IPCHandlers {
       }
     });
 
-    ipcMain.handle("cloud-agent-stream", async (event, messages, opts = {}) => {
+    ipcMain.on("cloud-agent-stream-start", async (event, messages, opts = {}) => {
       try {
         const apiUrl = getApiUrl();
         if (!apiUrl) throw new Error("OpenWhispr API URL not configured");
 
         const cookieHeader = await getSessionCookies(event);
         if (!cookieHeader) throw new Error("No session cookies available");
-
-        debugLogger.debug(
-          "Cloud agent stream request",
-          { messageCount: messages?.length || 0 },
-          "cloud-api"
-        );
 
         const response = await fetch(`${apiUrl}/api/agent/stream`, {
           method: "POST",
@@ -2929,10 +3401,94 @@ class IPCHandlers {
           body: JSON.stringify({
             messages,
             systemPrompt: opts.systemPrompt,
+            tools: opts.tools,
             sessionId: this.sessionId,
             clientType: "desktop",
             appVersion: app.getVersion(),
           }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          event.sender.send("cloud-agent-stream-error", {
+            error: errorData.error || `API error: ${response.status}`,
+            code: response.status === 401 ? "AUTH_EXPIRED" : undefined,
+          });
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                event.sender.send("cloud-agent-stream-chunk", JSON.parse(line));
+              } catch {
+                // skip malformed NDJSON line
+              }
+            }
+          }
+          if (buffer.trim()) {
+            try {
+              event.sender.send("cloud-agent-stream-chunk", JSON.parse(buffer));
+            } catch {
+              // skip malformed remainder
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+
+        event.sender.send("cloud-agent-stream-end");
+      } catch (error) {
+        debugLogger.error("Cloud agent stream error:", error);
+        event.sender.send("cloud-agent-stream-error", { error: error.message });
+      }
+    });
+
+    ipcMain.handle("agent-open-note", async (_event, noteId) => {
+      try {
+        const note = this.databaseManager.getNote(noteId);
+        await this.windowManager.createControlPanelWindow();
+        this.windowManager.sendToControlPanel("navigate-to-note", {
+          noteId,
+          folderId: note?.folder_id ?? null,
+        });
+        return { success: true };
+      } catch (error) {
+        debugLogger.error("Failed to open note from agent:", error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle("agent-web-search", async (event, query, numResults = 5) => {
+      try {
+        const apiUrl = getApiUrl();
+        if (!apiUrl) throw new Error("OpenWhispr API URL not configured");
+
+        const cookieHeader = await getSessionCookies(event);
+        if (!cookieHeader) throw new Error("No session cookies available");
+
+        debugLogger.debug("Agent web search request", { query, numResults }, "cloud-api");
+
+        const response = await fetch(`${apiUrl}/api/agent/web-search`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: cookieHeader,
+          },
+          body: JSON.stringify({ query, numResults }),
         });
 
         if (!response.ok) {
@@ -2946,26 +3502,10 @@ class IPCHandlers {
           };
         }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const text = decoder.decode(value, { stream: true });
-            if (text) event.sender.send("agent-stream-chunk", text);
-          }
-        } finally {
-          reader.releaseLock();
-        }
-
-        event.sender.send("agent-stream-done");
-        return { success: true };
+        const data = await response.json();
+        return { success: true, ...data };
       } catch (error) {
-        debugLogger.error("Cloud agent stream error:", error);
-        event.sender.send("agent-stream-done");
+        debugLogger.error("Agent web search error:", error);
         return { success: false, error: error.message };
       }
     });
@@ -4267,6 +4807,37 @@ class IPCHandlers {
       }
     });
 
+    ipcMain.handle("gcal-get-event", async (_event, eventId) => {
+      try {
+        const event = this.databaseManager.getCalendarEventById(eventId);
+        return { success: true, event };
+      } catch (error) {
+        return { success: false, event: null };
+      }
+    });
+
+    ipcMain.handle("search-contacts", async (_event, query) => {
+      try {
+        const contacts = this.databaseManager.searchContacts(query);
+        return { success: true, contacts };
+      } catch (error) {
+        return { success: false, contacts: [] };
+      }
+    });
+
+    ipcMain.handle("upsert-contact", async (_event, contact) => {
+      try {
+        this.databaseManager.upsertContacts([contact]);
+        return { success: true };
+      } catch (error) {
+        return { success: false };
+      }
+    });
+
+    ipcMain.handle("get-md5-hash", (_event, text) => {
+      return crypto.createHash("md5").update(text.toLowerCase().trim()).digest("hex");
+    });
+
     ipcMain.handle("meeting-detection-get-preferences", async () => {
       try {
         return { success: true, preferences: this.meetingDetectionEngine.getPreferences() };
@@ -4278,15 +4849,6 @@ class IPCHandlers {
     ipcMain.handle("meeting-detection-set-preferences", async (_event, prefs) => {
       try {
         this.meetingDetectionEngine.setPreferences(prefs);
-        return { success: true };
-      } catch (error) {
-        return { success: false, error: error.message };
-      }
-    });
-
-    ipcMain.handle("meeting-detection-respond", async (_event, detectionId, action) => {
-      try {
-        this.meetingDetectionEngine.handleUserResponse(detectionId, action);
         return { success: true };
       } catch (error) {
         return { success: false, error: error.message };
@@ -4328,6 +4890,98 @@ class IPCHandlers {
         }
       }
       return { success: true };
+    });
+
+    // Note files (markdown mirror) handlers
+    ipcMain.handle("note-files-set-enabled", async (_event, enabled, customPath) => {
+      try {
+        this._noteFilesEnabled = !!enabled;
+        if (enabled) {
+          this._rebuildMirror(customPath || path.join(app.getPath("userData"), "notes"));
+        }
+        return { success: true };
+      } catch (error) {
+        debugLogger.error(
+          "Failed to set note-files enabled",
+          { error: error.message },
+          "note-files"
+        );
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle("note-files-set-path", async (_event, newPath) => {
+      try {
+        if (!this._noteFilesEnabled) return { success: false, error: "Note files not enabled" };
+        this._rebuildMirror(newPath);
+        return { success: true };
+      } catch (error) {
+        debugLogger.error("Failed to set note-files path", { error: error.message }, "note-files");
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle("note-files-rebuild", async () => {
+      try {
+        if (!this._noteFilesEnabled) return { success: false, error: "Note files not enabled" };
+        this._rebuildMirror();
+        return { success: true };
+      } catch (error) {
+        debugLogger.error("Failed to rebuild note files", { error: error.message }, "note-files");
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle("note-files-get-default-path", async () => {
+      return path.join(app.getPath("userData"), "notes");
+    });
+
+    ipcMain.handle("show-note-file", async (_event, noteId) => {
+      try {
+        const markdownMirror = require("./markdownMirror");
+        const filePath = markdownMirror.getNotePath(noteId);
+        if (!filePath) return { success: false };
+        shell.showItemInFolder(filePath);
+        return { success: true };
+      } catch (error) {
+        debugLogger.error(
+          "Failed to show note file",
+          { noteId, error: error.message },
+          "note-files"
+        );
+        return { success: false };
+      }
+    });
+
+    ipcMain.handle("show-folder-in-explorer", async (_event, folderName) => {
+      try {
+        const markdownMirror = require("./markdownMirror");
+        const dirPath = markdownMirror.getFolderPath(folderName);
+        if (!dirPath) return { success: false };
+        await shell.openPath(dirPath);
+        return { success: true };
+      } catch (error) {
+        debugLogger.error(
+          "Failed to show folder",
+          { folderName, error: error.message },
+          "note-files"
+        );
+        return { success: false };
+      }
+    });
+
+    ipcMain.handle("note-files-pick-folder", async () => {
+      try {
+        const { dialog } = require("electron");
+        const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+        if (result.canceled || !result.filePaths.length) {
+          return { canceled: true };
+        }
+        return { canceled: false, path: result.filePaths[0] };
+      } catch (error) {
+        debugLogger.error("Failed to pick folder", { error: error.message }, "note-files");
+        return { canceled: true };
+      }
     });
   }
 

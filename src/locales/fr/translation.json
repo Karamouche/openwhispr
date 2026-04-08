@@ -7,6 +7,14 @@
       "uiDescription": "Choisissez la langue utilisée dans l'interface OpenWhispr",
       "transcriptionLabel": "Langue de transcription",
       "transcriptionDescription": "Choisissez la langue que vous parlez pour une transcription plus précise"
+    },
+    "noteFiles": {
+      "title": "Enregistrer les notes en fichiers",
+      "description": "Enregistrer automatiquement les notes en fichiers .md sur le disque, organisées par dossier",
+      "path": "Emplacement de sauvegarde",
+      "changePath": "Changer l'emplacement",
+      "rebuild": "Reconstruire tous les fichiers",
+      "rebuildDescription": "Resynchroniser toutes les notes sur le disque"
     }
   },
   "tray": {
@@ -22,6 +30,7 @@
     "appLabel": "OpenWhispr",
     "quit": "Quitter OpenWhispr",
     "speech": "Parole",
+    "settings": "Réglages…",
     "help": "Aide",
     "learnMore": "En savoir plus",
     "file": "Fichier",
@@ -987,15 +996,15 @@
           "period": "pour toujours",
           "features": [
             "## OpenWhispr Cloud",
-            "2,000 words/week transcription",
-            "5 hours of meeting recordings/month",
-            "## Always free",
-            "Unlimited local AI models",
-            "Unlimited cloud transcription with your own API keys",
-            "100+ languages supported",
-            "Custom dictionary",
-            "Zero data retention",
-            "Community support"
+            "2 000 mots/semaine de transcription",
+            "5 heures d'enregistrements de réunions/mois",
+            "## Toujours gratuit",
+            "Modèles d'IA locaux illimités",
+            "Transcription cloud illimitée avec vos propres clés API",
+            "Plus de 100 langues prises en charge",
+            "Dictionnaire personnalisé",
+            "Aucune conservation de données",
+            "Support communautaire"
           ]
         },
         "pro": {
@@ -1007,10 +1016,10 @@
           "annualEquivalent": "$6.67",
           "includesPrefix": "Toutes les fonctionnalités Free +",
           "features": [
-            "Unlimited cloud transcription",
-            "20 hours of meeting recordings/month",
-            "Mobile app (iOS Coming Soon)",
-            "Email support"
+            "Transcription cloud illimitée",
+            "20 heures d'enregistrements de réunions/mois",
+            "Application mobile (iOS bientôt disponible)",
+            "Support par e-mail"
           ],
           "cta": "Commencer",
           "switchToAnnual": "Passer à l'annuel"
@@ -1025,10 +1034,10 @@
           "includesPrefix": "Toutes les fonctionnalités Pro +",
           "badge": "Le plus populaire",
           "features": [
-            "Unlimited meeting recordings",
-            "Agent mode",
-            "Chat over your data (Coming Soon)",
-            "Priority support"
+            "Enregistrements de réunions illimités",
+            "Mode agent",
+            "Discutez avec vos données (bientôt disponible)",
+            "Support prioritaire"
           ],
           "cta": "Commencer",
           "switchToAnnual": "Passer à l'annuel"
@@ -1036,16 +1045,16 @@
         "enterprise": {
           "name": "Enterprise",
           "price": "Sur devis",
-          "subtitle": "For advanced security & support",
+          "subtitle": "Pour une sécurité avancée et un support dédié",
           "includesPrefix": "Toutes les fonctionnalités Business +",
           "features": [
-            "Managed API credits",
-            "Cloud sync across devices",
-            "Team features & admin",
-            "SSO & compliance",
-            "Dedicated support"
+            "Crédits API gérés",
+            "Synchronisation cloud entre appareils",
+            "Fonctionnalités d'équipe et administration",
+            "SSO et conformité",
+            "Support dédié"
           ],
-          "cta": "Contact Sales"
+          "cta": "Contacter les ventes"
         },
         "currentPlan": "Forfait actuel",
         "upgrade": "Passer au supérieur",
@@ -1442,6 +1451,16 @@
           "description": "Configurez votre propre fournisseur et clé API.",
           "title": "Basculé vers la configuration personnalisée"
         }
+      },
+      "gpuDevice": {
+        "title": "GPU de transcription",
+        "description": "GPU pour la transcription locale"
+      }
+    },
+    "intelligence": {
+      "gpuDevice": {
+        "title": "Intelligence GPU",
+        "description": "GPU utilisé pour le traitement IA local"
       }
     }
   },
@@ -1532,7 +1551,30 @@
     "learnMore": "En savoir plus",
     "integrations": "Intégrations",
     "defaultUser": "Utilisateur",
-    "notSignedIn": "Non connecté"
+    "notSignedIn": "Non connecté",
+    "chat": "Chat"
+  },
+  "chat": {
+    "newChat": "Nouveau chat",
+    "search": "Rechercher des conversations...",
+    "archived": "Archivées",
+    "noConversations": "Démarrez votre première conversation",
+    "selectChat": "Sélectionnez une conversation ou démarrez-en une nouvelle",
+    "noResults": "Aucune conversation correspondante",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "previousWeek": "7 derniers jours",
+    "older": "Plus anciennes",
+    "archive": "Archiver",
+    "unarchive": "Désarchiver",
+    "delete": "Supprimer",
+    "deleteConfirm": "Cette conversation sera définitivement supprimée. Cette action est irréversible.",
+    "editTitle": "Double-cliquez pour modifier le titre",
+    "untitled": "Sans titre",
+    "searchChats": "Rechercher",
+    "searchTitle": "Rechercher des conversations",
+    "searchDescription": "Rechercher dans toutes vos conversations",
+    "newChatEmpty": "Posez des questions sur vos notes, transcriptions ou autre"
   },
   "referral": {
     "title": "Parrainez et gagnez des récompenses",
@@ -1627,6 +1669,11 @@
     "upgradeUnlimited": "Passer à Pro — transcriptions illimitées"
   },
   "notes": {
+    "sidebar": {
+      "newNote": "Nouvelle note",
+      "searchNotes": "Rechercher des notes",
+      "actions": "Actions"
+    },
     "folders": {
       "title": "Dossiers",
       "soon": "Bientôt",
@@ -1657,13 +1704,23 @@
       "raw": "Brut",
       "enhanced": "Amélioré",
       "saving": "Enregistrement",
-      "wordsCount": "{{count}} mots",
       "startWriting": "Commencez à écrire...",
       "staleIndicator": "Le contenu a changé depuis l'amélioration",
       "live": "En direct",
       "transcript": "Transcription",
       "notes": "Notes",
-      "conversationWillAppear": "La conversation apparaîtra ici..."
+      "conversationWillAppear": "La conversation apparaîtra ici...",
+      "linkedEvent": "Événement lié",
+      "noFolder": "Aucun dossier",
+      "participants": "Participants"
+    },
+    "participants": {
+      "attendee": "participant",
+      "attendees": "participants",
+      "addAttendees": "Ajouter des participants",
+      "addPlaceholder": "Ajouter des participants...",
+      "typeEmail": "Saisissez un e-mail pour ajouter...",
+      "me": "(moi)"
     },
     "upload": {
       "title": "Téléverser un fichier audio",
@@ -1737,7 +1794,8 @@
       "rename": "Renommer",
       "searchFolders": "Rechercher des dossiers...",
       "noResults": "Aucun dossier trouvé",
-      "newFolder": "Nouveau dossier"
+      "newFolder": "Nouveau dossier",
+      "showInFileManager": "Afficher dans {{manager}}"
     },
     "actions": {
       "done": "Terminé",
@@ -1753,6 +1811,9 @@
       "update": "Mettre à jour",
       "cancel": "Annuler",
       "noActions": "Aucune action personnalisée pour l'instant",
+      "promptLabel": "Instruction",
+      "emptyEditorTitle": "Sélectionner une action",
+      "emptyEditorDescription": "Choisissez une action dans la liste ou créez-en une nouvelle",
       "runAction": "Exécuter {{name}}",
       "selectAction": "Sélectionner l'action",
       "builtin": {
@@ -1904,7 +1965,7 @@
       "newConversation": "Nouveau",
       "copyToClipboard": "Copier dans le presse-papiers",
       "copied": "Copié !",
-      "emptyState": "Maintenez {{hotkey}} pour démarrer une conversation",
+      "emptyState": "Demandez-moi n'importe quoi",
       "errorPrefix": "Erreur"
     },
     "titleBar": {
@@ -1917,7 +1978,30 @@
       "toClose": "fermer",
       "listening": "Écoute...",
       "transcribing": "Transcription...",
-      "thinking": "Réflexion..."
+      "thinking": "Réflexion...",
+      "typeMessage": "Écrivez un message...",
+      "send": "Envoyer"
+    },
+    "tools": {
+      "search_notesStatus": "Recherche de notes...",
+      "web_searchStatus": "Recherche sur le web...",
+      "copy_to_clipboardStatus": "Copie dans le presse-papiers...",
+      "get_calendar_eventsStatus": "Vérification du calendrier...",
+      "get_noteStatus": "Lecture de la note...",
+      "create_noteStatus": "Création de la note...",
+      "update_noteStatus": "Mise à jour de la note...",
+      "copiedToClipboard": "Copié dans le presse-papiers",
+      "foundNotes": "{{count}} note trouvée",
+      "foundNotes_plural": "{{count}} notes trouvées",
+      "searchResults": "{{count}} résultat trouvé",
+      "searchResults_plural": "{{count}} résultats trouvés",
+      "openNote": "Ouvrir la note",
+      "calendarEvents": "{{count}} événement trouvé",
+      "calendarEvents_plural": "{{count}} événements trouvés",
+      "noResults": "Aucun résultat",
+      "error": "Erreur d'outil",
+      "unknownTool": "Outil inconnu : {{name}}",
+      "invalidArgs": "Arguments d'outil invalides pour {{name}}"
     }
   },
   "integrations": {
@@ -2058,5 +2142,16 @@
     "title": "Autorisations requises",
     "description": "OpenWhispr a besoin de quelques autorisations pour fonctionner sur cet ordinateur.",
     "continue": "Continuer"
+  },
+  "embeddedChat": {
+    "askPlaceholder": "Posez une question...",
+    "send": "Envoyer",
+    "title": "Chat",
+    "emptyState": "Posez une question sur cette note",
+    "dock": "Ancrer dans la barre latérale",
+    "undock": "Détacher de la barre latérale",
+    "close": "Fermer le chat",
+    "newChat": "Nouvelle discussion",
+    "conversationSelector": "Changer de conversation"
   }
 }

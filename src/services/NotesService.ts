@@ -9,6 +9,7 @@ interface NoteInput {
   note_type?: "personal" | "meeting" | "upload";
   source_file?: string | null;
   audio_duration_seconds?: number | null;
+  participants?: string | null;
   created_at?: string;
   updated_at?: string;
 }

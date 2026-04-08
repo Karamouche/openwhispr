@@ -7,6 +7,14 @@
       "uiDescription": "Choose the language used throughout OpenWhispr's interface",
       "transcriptionLabel": "Transcription language",
       "transcriptionDescription": "Choose the language you speak for more accurate transcription"
+    },
+    "noteFiles": {
+      "title": "Save notes as files",
+      "description": "Automatically save notes as .md files on disk, organized by folder",
+      "path": "Save location",
+      "changePath": "Change location",
+      "rebuild": "Rebuild all files",
+      "rebuildDescription": "Re-sync all notes to disk"
     }
   },
   "tray": {
@@ -22,6 +30,7 @@
     "appLabel": "OpenWhispr",
     "quit": "Quit OpenWhispr",
     "speech": "Speech",
+    "settings": "Settings...",
     "help": "Help",
     "learnMore": "Learn More",
     "file": "File",
@@ -1490,6 +1499,16 @@
           "description": "Configure your own provider and API key.",
           "title": "Switched to Custom Setup"
         }
+      },
+      "gpuDevice": {
+        "title": "Transcription GPU",
+        "description": "GPU used for local speech-to-text"
+      }
+    },
+    "intelligence": {
+      "gpuDevice": {
+        "title": "Intelligence GPU",
+        "description": "GPU used for local AI processing"
       }
     }
   },
@@ -1580,7 +1599,30 @@
     "learnMore": "Learn more",
     "integrations": "Integrations",
     "defaultUser": "User",
-    "notSignedIn": "Not signed in"
+    "notSignedIn": "Not signed in",
+    "chat": "Chat"
+  },
+  "chat": {
+    "newChat": "New chat",
+    "search": "Search conversations...",
+    "archived": "Archived",
+    "noConversations": "Start your first conversation",
+    "selectChat": "Select a conversation or start a new one",
+    "noResults": "No matching conversations",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "previousWeek": "Previous 7 Days",
+    "older": "Older",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "delete": "Delete",
+    "deleteConfirm": "This conversation will be permanently deleted. This cannot be undone.",
+    "editTitle": "Double-click to edit title",
+    "untitled": "Untitled",
+    "searchChats": "Search chats",
+    "searchTitle": "Search conversations",
+    "searchDescription": "Search across all your conversations",
+    "newChatEmpty": "Ask about your notes, transcripts, or anything else"
   },
   "referral": {
     "title": "Refer and earn rewards",
@@ -1675,6 +1717,11 @@
     "upgradeUnlimited": "Upgrade to Pro — unlimited transcriptions"
   },
   "notes": {
+    "sidebar": {
+      "newNote": "New note",
+      "searchNotes": "Search notes",
+      "actions": "Actions"
+    },
     "folders": {
       "title": "Folders",
       "soon": "Soon",
@@ -1705,13 +1752,23 @@
       "raw": "Raw",
       "enhanced": "Enhanced",
       "saving": "Saving",
-      "wordsCount": "{{count}} words",
       "startWriting": "Start writing...",
       "staleIndicator": "Content has changed since enhancement",
       "live": "Live",
       "transcript": "Transcript",
       "notes": "Notes",
-      "conversationWillAppear": "Conversation will appear here..."
+      "conversationWillAppear": "Conversation will appear here...",
+      "linkedEvent": "Linked event",
+      "noFolder": "No folder",
+      "participants": "Participants"
+    },
+    "participants": {
+      "attendee": "attendee",
+      "attendees": "attendees",
+      "addAttendees": "Add attendees",
+      "addPlaceholder": "Add attendees...",
+      "typeEmail": "Type an email to add...",
+      "me": "(me)"
     },
     "upload": {
       "title": "Upload Audio",
@@ -1785,7 +1842,8 @@
       "rename": "Rename",
       "searchFolders": "Search folders...",
       "noResults": "No folders found",
-      "newFolder": "New folder"
+      "newFolder": "New folder",
+      "showInFileManager": "Show in {{manager}}"
     },
     "actions": {
       "done": "Done",
@@ -1801,6 +1859,9 @@
       "update": "Update",
       "cancel": "Cancel",
       "noActions": "No custom actions yet",
+      "promptLabel": "Prompt",
+      "emptyEditorTitle": "Select an action",
+      "emptyEditorDescription": "Choose an action from the list or create a new one",
       "runAction": "Run {{name}}",
       "selectAction": "Select action",
       "builtin": {
@@ -1952,7 +2013,7 @@
       "newConversation": "New",
       "copyToClipboard": "Copy to clipboard",
       "copied": "Copied!",
-      "emptyState": "Hold {{hotkey}} to start a conversation",
+      "emptyState": "Ask me anything",
       "errorPrefix": "Error"
     },
     "titleBar": {
@@ -1965,7 +2026,30 @@
       "toClose": "close",
       "listening": "Listening...",
       "transcribing": "Transcribing...",
-      "thinking": "Thinking..."
+      "thinking": "Thinking...",
+      "typeMessage": "Type a message...",
+      "send": "Send"
+    },
+    "tools": {
+      "search_notesStatus": "Searching notes...",
+      "web_searchStatus": "Searching the web...",
+      "copy_to_clipboardStatus": "Copying to clipboard...",
+      "get_calendar_eventsStatus": "Checking calendar...",
+      "get_noteStatus": "Reading note...",
+      "create_noteStatus": "Creating note...",
+      "update_noteStatus": "Updating note...",
+      "copiedToClipboard": "Copied to your clipboard",
+      "foundNotes": "Found {{count}} note",
+      "foundNotes_plural": "Found {{count}} notes",
+      "searchResults": "Found {{count}} result",
+      "searchResults_plural": "Found {{count}} results",
+      "openNote": "Open note",
+      "calendarEvents": "Found {{count}} event",
+      "calendarEvents_plural": "Found {{count}} events",
+      "noResults": "No results found",
+      "error": "Tool error",
+      "unknownTool": "Unknown tool: {{name}}",
+      "invalidArgs": "Invalid tool arguments for {{name}}"
     }
   },
   "integrations": {
@@ -2058,5 +2142,16 @@
     "title": "Permissions Required",
     "description": "OpenWhispr needs a few permissions to work on this computer.",
     "continue": "Continue"
+  },
+  "embeddedChat": {
+    "askPlaceholder": "Ask anything...",
+    "send": "Send",
+    "title": "Chat",
+    "emptyState": "Ask a question about this note",
+    "dock": "Dock to sidebar",
+    "undock": "Undock from sidebar",
+    "close": "Close chat",
+    "newChat": "New chat",
+    "conversationSelector": "Switch conversation"
   }
 }

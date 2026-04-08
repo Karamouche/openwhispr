@@ -43,6 +43,7 @@ export const useAudioRecording = (toast, options = {}) => {
         if (getSettings().pauseMediaOnDictation) {
           window.electronAPI?.pauseMediaPlayback?.();
         }
+        window.electronAPI?.registerCancelHotkey?.("Escape");
         void playStartCue();
       }
 
@@ -60,6 +61,8 @@ export const useAudioRecording = (toast, options = {}) => {
 
       const currentState = audioManagerRef.current.getState();
       if (!currentState.isRecording && !currentState.isStreamingStartInProgress) return false;
+
+      window.electronAPI?.unregisterCancelHotkey?.();
 
       if (currentState.isStreaming || currentState.isStreamingStartInProgress) {
         void playStopCue();
@@ -83,6 +86,7 @@ export const useAudioRecording = (toast, options = {}) => {
 
     audioManagerRef.current.setCallbacks({
       onStateChange: ({ isRecording, isProcessing, isStreaming }) => {
+        if (!isRecording) window.electronAPI?.unregisterCancelHotkey?.();
         setIsRecording(isRecording);
         setIsProcessing(isProcessing);
         setIsStreaming(isStreaming ?? false);
@@ -231,8 +235,9 @@ export const useAudioRecording = (toast, options = {}) => {
     };
   }, [toast, onToggle, performStartRecording, performStopRecording, t]);
 
-  const cancelRecording = async () => {
+  const cancelRecording = useCallback(async () => {
     if (audioManagerRef.current) {
+      window.electronAPI?.unregisterCancelHotkey?.();
       const state = audioManagerRef.current.getState();
       if (getSettings().pauseMediaOnDictation) {
         window.electronAPI?.resumeMediaPlayback?.();
@@ -243,7 +248,7 @@ export const useAudioRecording = (toast, options = {}) => {
       return audioManagerRef.current.cancelRecording();
     }
     return false;
-  };
+  }, []);
 
   const cancelProcessing = () => {
     if (audioManagerRef.current) {
