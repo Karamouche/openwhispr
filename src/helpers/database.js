@@ -254,6 +254,42 @@ class DatabaseManager {
         "CREATE INDEX IF NOT EXISTS idx_agent_conversations_note ON agent_conversations(note_id)"
       );
 
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS openclaw_conversations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          remote_session_key TEXT NOT NULL UNIQUE,
+          title TEXT NOT NULL DEFAULT 'Untitled',
+          origin_channel TEXT,
+          unread_count INTEGER NOT NULL DEFAULT 0,
+          last_synced_at DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          archived_at DATETIME
+        )
+      `);
+
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS openclaw_messages (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          conversation_id INTEGER NOT NULL REFERENCES openclaw_conversations(id) ON DELETE CASCADE,
+          remote_message_id TEXT,
+          role TEXT NOT NULL CHECK(role IN ('user','assistant','system','tool')),
+          content TEXT NOT NULL,
+          metadata TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      this.db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_openclaw_messages_conversation ON openclaw_messages(conversation_id)"
+      );
+      this.db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_openclaw_conversations_session ON openclaw_conversations(remote_session_key)"
+      );
+      this.db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_openclaw_conversations_updated ON openclaw_conversations(updated_at DESC)"
+      );
+
       const actionCount = this.db.prepare("SELECT COUNT(*) as count FROM actions").get();
       if (actionCount.count === 0) {
         this.db
@@ -1476,6 +1512,269 @@ class DatabaseManager {
     } catch (error) {
       debugLogger.error(
         "Error updating agent conversation cloud_id",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  upsertOpenClawConversation({ remoteSessionKey, title, originChannel }) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      this.db
+        .prepare(
+          `INSERT INTO openclaw_conversations (remote_session_key, title, origin_channel, last_synced_at)
+           VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(remote_session_key) DO UPDATE SET
+             title = COALESCE(excluded.title, openclaw_conversations.title),
+             origin_channel = COALESCE(excluded.origin_channel, openclaw_conversations.origin_channel),
+             last_synced_at = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP`
+        )
+        .run(remoteSessionKey, title || "Untitled", originChannel || null);
+      return this.db
+        .prepare("SELECT * FROM openclaw_conversations WHERE remote_session_key = ?")
+        .get(remoteSessionKey);
+    } catch (error) {
+      debugLogger.error(
+        "Error upserting openclaw conversation",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  findOpenClawConversationBySessionKey(remoteSessionKey) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      return (
+        this.db
+          .prepare("SELECT * FROM openclaw_conversations WHERE remote_session_key = ?")
+          .get(remoteSessionKey) || null
+      );
+    } catch (error) {
+      debugLogger.error(
+        "Error finding openclaw conversation",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  getOpenClawConversation(id) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      const conversation = this.db
+        .prepare("SELECT * FROM openclaw_conversations WHERE id = ?")
+        .get(id);
+      if (!conversation) return null;
+      const messages = this.db
+        .prepare(
+          "SELECT * FROM openclaw_messages WHERE conversation_id = ? ORDER BY created_at ASC"
+        )
+        .all(id);
+      return { ...conversation, messages };
+    } catch (error) {
+      debugLogger.error(
+        "Error getting openclaw conversation",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  getOpenClawConversations(limit = 50) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      return this.db
+        .prepare("SELECT * FROM openclaw_conversations ORDER BY updated_at DESC LIMIT ?")
+        .all(limit);
+    } catch (error) {
+      debugLogger.error(
+        "Error getting openclaw conversations",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  getOpenClawConversationsWithPreview(limit = 50, offset = 0, includeArchived = false) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      const archiveFilter = includeArchived
+        ? "WHERE c.archived_at IS NOT NULL"
+        : "WHERE c.archived_at IS NULL";
+      return this.db
+        .prepare(
+          `SELECT c.id, c.title, c.created_at, c.updated_at, c.archived_at,
+            c.remote_session_key, c.origin_channel, c.unread_count,
+            COUNT(m.id) AS message_count,
+            (SELECT content FROM openclaw_messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
+            (SELECT role FROM openclaw_messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_role
+          FROM openclaw_conversations c
+          LEFT JOIN openclaw_messages m ON m.conversation_id = c.id
+          ${archiveFilter}
+          GROUP BY c.id
+          ORDER BY c.updated_at DESC
+          LIMIT ? OFFSET ?`
+        )
+        .all(limit, offset);
+    } catch (error) {
+      debugLogger.error(
+        "Error getting openclaw conversations with preview",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  updateOpenClawConversationTitle(id, title) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      this.db
+        .prepare(
+          "UPDATE openclaw_conversations SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        )
+        .run(title, id);
+      return { success: true };
+    } catch (error) {
+      debugLogger.error(
+        "Error updating openclaw conversation title",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  addOpenClawMessage(conversationId, role, content, metadata, remoteMessageId) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      const metadataStr = metadata ? JSON.stringify(metadata) : null;
+      const result = this.db
+        .prepare(
+          "INSERT INTO openclaw_messages (conversation_id, role, content, metadata, remote_message_id) VALUES (?, ?, ?, ?, ?)"
+        )
+        .run(conversationId, role, content, metadataStr, remoteMessageId || null);
+      this.db
+        .prepare(
+          "UPDATE openclaw_conversations SET updated_at = CURRENT_TIMESTAMP, archived_at = NULL WHERE id = ?"
+        )
+        .run(conversationId);
+      return this.db
+        .prepare("SELECT * FROM openclaw_messages WHERE id = ?")
+        .get(result.lastInsertRowid);
+    } catch (error) {
+      debugLogger.error(
+        "Error adding openclaw message",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  getOpenClawMessages(conversationId) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      return this.db
+        .prepare(
+          "SELECT * FROM openclaw_messages WHERE conversation_id = ? ORDER BY created_at ASC"
+        )
+        .all(conversationId);
+    } catch (error) {
+      debugLogger.error(
+        "Error getting openclaw messages",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  deleteOpenClawConversation(id) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      this.db.prepare("DELETE FROM openclaw_messages WHERE conversation_id = ?").run(id);
+      const result = this.db.prepare("DELETE FROM openclaw_conversations WHERE id = ?").run(id);
+      return { success: result.changes > 0 };
+    } catch (error) {
+      debugLogger.error(
+        "Error deleting openclaw conversation",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  archiveOpenClawConversation(id) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      this.db
+        .prepare("UPDATE openclaw_conversations SET archived_at = CURRENT_TIMESTAMP WHERE id = ?")
+        .run(id);
+      return { success: true };
+    } catch (error) {
+      debugLogger.error(
+        "Error archiving openclaw conversation",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  unarchiveOpenClawConversation(id) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      this.db.prepare("UPDATE openclaw_conversations SET archived_at = NULL WHERE id = ?").run(id);
+      return { success: true };
+    } catch (error) {
+      debugLogger.error(
+        "Error unarchiving openclaw conversation",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  incrementOpenClawUnread(conversationId) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      this.db
+        .prepare(
+          "UPDATE openclaw_conversations SET unread_count = unread_count + 1 WHERE id = ?"
+        )
+        .run(conversationId);
+      return { success: true };
+    } catch (error) {
+      debugLogger.error(
+        "Error incrementing openclaw unread",
+        { error: error.message },
+        "database"
+      );
+      throw error;
+    }
+  }
+
+  clearOpenClawUnread(conversationId) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      this.db
+        .prepare("UPDATE openclaw_conversations SET unread_count = 0 WHERE id = ?")
+        .run(conversationId);
+      return { success: true };
+    } catch (error) {
+      debugLogger.error(
+        "Error clearing openclaw unread",
         { error: error.message },
         "database"
       );

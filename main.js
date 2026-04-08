@@ -206,6 +206,9 @@ const GoogleCalendarManager = require("./src/helpers/googleCalendarManager");
 const MeetingProcessDetector = require("./src/helpers/meetingProcessDetector");
 const AudioActivityDetector = require("./src/helpers/audioActivityDetector");
 const AudioTapManager = require("./src/helpers/audioTapManager");
+const OpenClawClient = require("./src/helpers/openClawClient");
+const OpenClawTunnel = require("./src/helpers/openClawTunnel");
+const OpenClawNotifier = require("./src/helpers/openClawNotifier");
 const MeetingDetectionEngine = require("./src/helpers/meetingDetectionEngine");
 const { i18nMain, changeLanguage } = require("./src/helpers/i18nMain");
 const { ensureYdotool } = require("./src/helpers/ensureYdotool");
@@ -228,6 +231,9 @@ let whisperCudaManager = null;
 let googleCalendarManager = null;
 let meetingDetectionEngine = null;
 let audioTapManager = null;
+let openClawClient = null;
+let openClawTunnel = null;
+let openClawNotifier = null;
 let qdrantManager = null;
 let ipcHandlers = null;
 let globeKeyAlertShown = false;
@@ -308,6 +314,18 @@ function initializeCoreManagers() {
   audioTapManager = new AudioTapManager();
   windowManager.textEditMonitor = textEditMonitor;
 
+  if (isOpenClawEnabled()) {
+    const config = readOpenClawConfig();
+    openClawClient = new OpenClawClient(config);
+    openClawTunnel = new OpenClawTunnel(config.ssh || {});
+    openClawNotifier = new OpenClawNotifier({
+      client: openClawClient,
+      databaseManager,
+      meetingDetectionEngine,
+      windowManager,
+    });
+  }
+
   // IPC handlers must be registered before window content loads
   ipcHandlers = new IPCHandlers({
     environmentManager,
@@ -323,8 +341,43 @@ function initializeCoreManagers() {
     googleCalendarManager,
     meetingDetectionEngine,
     audioTapManager,
+    openClawClient,
+    openClawNotifier,
     getTrayManager: () => trayManager,
   });
+}
+
+function isOpenClawEnabled() {
+  return process.env.OPENCLAW_ENABLED === "true";
+}
+
+function readOpenClawConfig() {
+  const sshEnabled = process.env.OPENCLAW_SSH_ENABLED === "true";
+  return {
+    url: process.env.OPENCLAW_GATEWAY_URL || "ws://127.0.0.1:18789",
+    token: process.env.OPENCLAW_GATEWAY_TOKEN || "",
+    ssh: sshEnabled
+      ? {
+          host: process.env.OPENCLAW_SSH_HOST || "",
+          port: Number(process.env.OPENCLAW_SSH_PORT) || 22,
+          user: process.env.OPENCLAW_SSH_USER || "",
+          keyPath: process.env.OPENCLAW_SSH_KEY_PATH || "",
+          remotePort: Number(process.env.OPENCLAW_SSH_REMOTE_PORT) || 18789,
+        }
+      : null,
+  };
+}
+
+async function startOpenClaw() {
+  if (!openClawClient) return;
+  try {
+    if (openClawTunnel) {
+      await openClawTunnel.ensure();
+    }
+    await openClawClient.connect();
+  } catch (err) {
+    debugLogger.debug("OpenClaw startup failed", { error: err.message }, "openclaw");
+  }
 }
 
 // Phase 2: Non-critical setup after windows are visible
@@ -648,6 +701,8 @@ async function startApp() {
   // Phase 2: Initialize remaining managers after windows are visible
   initializeDeferredManagers();
 
+  startOpenClaw();
+
   app.on("browser-window-focus", () => {
     if (googleCalendarManager) googleCalendarManager.syncOnFocus();
   });
@@ -656,6 +711,9 @@ async function startApp() {
   powerMonitor.on("resume", () => {
     if (googleCalendarManager) {
       googleCalendarManager.onWakeFromSleep();
+    }
+    if (openClawClient && openClawClient.getStatus() !== "connected") {
+      openClawClient.connect().catch(() => {});
     }
   });
 
@@ -1189,6 +1247,15 @@ if (gotSingleInstanceLock) {
     modelManager.stopServer().catch(() => {});
     if (qdrantManager) {
       qdrantManager.stop().catch(() => {});
+    }
+    if (openClawNotifier) {
+      openClawNotifier.dispose();
+    }
+    if (openClawClient) {
+      openClawClient.disconnect().catch(() => {});
+    }
+    if (openClawTunnel) {
+      openClawTunnel.close().catch(() => {});
     }
   });
 }

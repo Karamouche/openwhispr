@@ -104,6 +104,8 @@ class IPCHandlers {
     this.googleCalendarManager = managers.googleCalendarManager;
     this.meetingDetectionEngine = managers.meetingDetectionEngine;
     this.audioTapManager = managers.audioTapManager;
+    this.openClawClient = managers.openClawClient || null;
+    this.openClawNotifier = managers.openClawNotifier || null;
     this.sessionId = crypto.randomUUID();
     this.assemblyAiStreaming = null;
     this.deepgramStreaming = null;
@@ -128,6 +130,29 @@ class IPCHandlers {
         this.broadcastToWindows("cuda-fallback-notification", {});
       });
     }
+
+    this._setupOpenClawForwarding();
+  }
+
+  _setupOpenClawForwarding() {
+    if (!this.openClawClient) return;
+    const forward = (eventName, channel) => {
+      this.openClawClient.on(eventName, (payload) => {
+        this.broadcastToWindows(channel, payload);
+      });
+    };
+    this.openClawClient.on("status-change", (status) => {
+      this.broadcastToWindows("openclaw-status-change", status);
+    });
+    this.openClawClient.on("sessions-changed", () => {
+      this.broadcastToWindows("openclaw-sessions-changed");
+    });
+    forward("message-chunk", "openclaw-message-chunk");
+    forward("message-done", "openclaw-message-done");
+    forward("tool-call", "openclaw-tool-call");
+    forward("tool-result", "openclaw-tool-result");
+    forward("proactive-message", "openclaw-proactive-message");
+    forward("error", "openclaw-error");
   }
 
   _asyncVectorUpsert(note) {
@@ -910,6 +935,129 @@ class IPCHandlers {
         }
       }
       return this.databaseManager.searchAgentConversations(query, limit);
+    });
+
+    // OpenClaw transport handlers
+    ipcMain.handle("openclaw-status", async () => {
+      return this.openClawClient?.getStatus() || "disconnected";
+    });
+
+    ipcMain.handle("openclaw-list-sessions", async () => {
+      if (!this.openClawClient) return [];
+      return this.openClawClient.listSessions();
+    });
+
+    ipcMain.handle("openclaw-create-session", async (event, opts) => {
+      if (!this.openClawClient) throw new Error("OpenClaw not initialized");
+      return this.openClawClient.createSession(opts || {});
+    });
+
+    ipcMain.handle("openclaw-set-active-session", async (event, sessionKey) => {
+      this.openClawClient?.setActiveSession(sessionKey);
+      return { success: true };
+    });
+
+    ipcMain.handle("openclaw-get-history", async (event, { sessionKey, ...opts }) => {
+      if (!this.openClawClient) return { messages: [] };
+      return this.openClawClient.getHistory(sessionKey, opts);
+    });
+
+    ipcMain.handle("openclaw-send-message", async (event, { sessionKey, text }) => {
+      if (!this.openClawClient) throw new Error("OpenClaw not initialized");
+      return this.openClawClient.sendMessage(sessionKey, text);
+    });
+
+    ipcMain.handle("openclaw-abort", async (event, sessionKey) => {
+      if (!this.openClawClient) return { success: false };
+      await this.openClawClient.abort(sessionKey);
+      return { success: true };
+    });
+
+    ipcMain.handle("openclaw-test-connection", async (event, config) => {
+      const OpenClawClient = require("./openClawClient");
+      const tester = new OpenClawClient(config || {});
+      try {
+        await tester.connect();
+        await tester.disconnect();
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    });
+
+    ipcMain.on("openclaw-tab-active", (event, active) => {
+      this.openClawNotifier?.setTabActive(Boolean(active));
+    });
+
+    // OpenClaw database handlers
+    ipcMain.handle(
+      "db-upsert-openclaw-conversation",
+      async (event, { remoteSessionKey, title, originChannel }) => {
+        return this.databaseManager.upsertOpenClawConversation({
+          remoteSessionKey,
+          title,
+          originChannel,
+        });
+      }
+    );
+
+    ipcMain.handle(
+      "db-find-openclaw-conversation-by-session-key",
+      async (event, remoteSessionKey) => {
+        return this.databaseManager.findOpenClawConversationBySessionKey(remoteSessionKey);
+      }
+    );
+
+    ipcMain.handle("db-get-openclaw-conversation", async (event, id) => {
+      return this.databaseManager.getOpenClawConversation(id);
+    });
+
+    ipcMain.handle(
+      "db-get-openclaw-conversations-with-preview",
+      async (event, limit, offset, includeArchived) => {
+        return this.databaseManager.getOpenClawConversationsWithPreview(
+          limit,
+          offset,
+          includeArchived
+        );
+      }
+    );
+
+    ipcMain.handle("db-update-openclaw-conversation-title", async (event, id, title) => {
+      return this.databaseManager.updateOpenClawConversationTitle(id, title);
+    });
+
+    ipcMain.handle(
+      "db-add-openclaw-message",
+      async (event, conversationId, role, content, metadata, remoteMessageId) => {
+        return this.databaseManager.addOpenClawMessage(
+          conversationId,
+          role,
+          content,
+          metadata,
+          remoteMessageId
+        );
+      }
+    );
+
+    ipcMain.handle("db-get-openclaw-messages", async (event, conversationId) => {
+      return this.databaseManager.getOpenClawMessages(conversationId);
+    });
+
+    ipcMain.handle("db-delete-openclaw-conversation", async (event, id) => {
+      return this.databaseManager.deleteOpenClawConversation(id);
+    });
+
+    ipcMain.handle("db-archive-openclaw-conversation", async (event, id) => {
+      return this.databaseManager.archiveOpenClawConversation(id);
+    });
+
+    ipcMain.handle("db-unarchive-openclaw-conversation", async (event, id) => {
+      return this.databaseManager.unarchiveOpenClawConversation(id);
+    });
+
+    ipcMain.handle("db-clear-openclaw-unread", async (event, conversationId) => {
+      return this.databaseManager.clearOpenClawUnread(conversationId);
     });
 
     ipcMain.handle("export-note", async (event, noteId, format) => {

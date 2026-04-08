@@ -721,4 +721,89 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getUpdateNotificationData: () => ipcRenderer.invoke("get-update-notification-data"),
   updateNotificationReady: () => ipcRenderer.invoke("update-notification-ready"),
   updateNotificationRespond: (action) => ipcRenderer.invoke("update-notification-respond", action),
+
+  // OpenClaw gateway transport
+  openclaw: {
+    status: () => ipcRenderer.invoke("openclaw-status"),
+    listSessions: () => ipcRenderer.invoke("openclaw-list-sessions"),
+    createSession: (opts) => ipcRenderer.invoke("openclaw-create-session", opts),
+    setActiveSession: (sessionKey) =>
+      ipcRenderer.invoke("openclaw-set-active-session", sessionKey),
+    getHistory: (sessionKey, opts) =>
+      ipcRenderer.invoke("openclaw-get-history", { sessionKey, ...(opts || {}) }),
+    sendMessage: (sessionKey, text) =>
+      ipcRenderer.invoke("openclaw-send-message", { sessionKey, text }),
+    abort: (sessionKey) => ipcRenderer.invoke("openclaw-abort", sessionKey),
+    testConnection: (config) => ipcRenderer.invoke("openclaw-test-connection", config),
+    tabActive: (active) => ipcRenderer.send("openclaw-tab-active", active),
+    onStatusChange: registerListener(
+      "openclaw-status-change",
+      (callback) => (_event, status) => callback(status)
+    ),
+    onSessionsChanged: registerListener(
+      "openclaw-sessions-changed",
+      (callback) => () => callback()
+    ),
+    onMessageChunk: registerListener(
+      "openclaw-message-chunk",
+      (callback) => (_event, data) => callback(data)
+    ),
+    onMessageDone: registerListener(
+      "openclaw-message-done",
+      (callback) => (_event, data) => callback(data)
+    ),
+    onToolCall: registerListener(
+      "openclaw-tool-call",
+      (callback) => (_event, data) => callback(data)
+    ),
+    onToolResult: registerListener(
+      "openclaw-tool-result",
+      (callback) => (_event, data) => callback(data)
+    ),
+    onProactiveMessage: registerListener(
+      "openclaw-proactive-message",
+      (callback) => (_event, data) => callback(data)
+    ),
+    onError: registerListener(
+      "openclaw-error",
+      (callback) => (_event, data) => callback(data)
+    ),
+    onOpenConversation: registerListener(
+      "openclaw-open-conversation",
+      (callback) => (_event, data) => callback(data)
+    ),
+  },
+
+  // OpenClaw conversation persistence
+  upsertOpenClawConversation: (params) =>
+    ipcRenderer.invoke("db-upsert-openclaw-conversation", params),
+  findOpenClawConversationBySessionKey: (remoteSessionKey) =>
+    ipcRenderer.invoke("db-find-openclaw-conversation-by-session-key", remoteSessionKey),
+  getOpenClawConversation: (id) => ipcRenderer.invoke("db-get-openclaw-conversation", id),
+  getOpenClawConversationsWithPreview: (limit, offset, includeArchived) =>
+    ipcRenderer.invoke(
+      "db-get-openclaw-conversations-with-preview",
+      limit,
+      offset,
+      includeArchived
+    ),
+  updateOpenClawConversationTitle: (id, title) =>
+    ipcRenderer.invoke("db-update-openclaw-conversation-title", id, title),
+  addOpenClawMessage: (conversationId, role, content, metadata, remoteMessageId) =>
+    ipcRenderer.invoke(
+      "db-add-openclaw-message",
+      conversationId,
+      role,
+      content,
+      metadata,
+      remoteMessageId
+    ),
+  getOpenClawMessages: (conversationId) =>
+    ipcRenderer.invoke("db-get-openclaw-messages", conversationId),
+  deleteOpenClawConversation: (id) => ipcRenderer.invoke("db-delete-openclaw-conversation", id),
+  archiveOpenClawConversation: (id) => ipcRenderer.invoke("db-archive-openclaw-conversation", id),
+  unarchiveOpenClawConversation: (id) =>
+    ipcRenderer.invoke("db-unarchive-openclaw-conversation", id),
+  clearOpenClawUnread: (conversationId) =>
+    ipcRenderer.invoke("db-clear-openclaw-unread", conversationId),
 });

@@ -29,6 +29,7 @@ const PERSISTED_KEYS = [
   "WHISPER_CUDA_ENABLED",
   "TRANSCRIPTION_GPU_INDEX",
   "INTELLIGENCE_GPU_INDEX",
+  "OPENCLAW_GATEWAY_TOKEN",
 ];
 
 class EnvironmentManager {
@@ -197,6 +198,16 @@ class EnvironmentManager {
 
   savePanelStartPosition(position) {
     const result = this._saveKey("PANEL_START_POSITION", position);
+    this.saveAllKeysToEnvFile().catch(() => {});
+    return result;
+  }
+
+  getOpenClawGatewayToken() {
+    return this._getKey("OPENCLAW_GATEWAY_TOKEN");
+  }
+
+  saveOpenClawGatewayToken(key) {
+    const result = this._saveKey("OPENCLAW_GATEWAY_TOKEN", key);
     this.saveAllKeysToEnvFile().catch(() => {});
     return result;
   }
