@@ -1446,6 +1446,17 @@
       "gpuDevice": {
         "title": "Transcription GPU",
         "description": "GPU used for local speech-to-text"
+      },
+      "diarization": {
+        "title": "Speaker Identification",
+        "description": "Identify individual speakers in meeting recordings",
+        "toggle": "Identify speakers in meetings",
+        "downloadModels": "Download Models",
+        "downloadModelsSize": "Download Models (~35 MB)",
+        "modelsReady": "Models Ready",
+        "downloading": "Downloading...",
+        "deleteModels": "Delete Models",
+        "requiresModels": "Download speaker identification models to enable this feature"
       }
     },
     "intelligence": {
@@ -1459,6 +1470,10 @@
     "descriptions": {
       "parakeet": {
         "parakeet_tdt_0_6b_v3": "Fast multilingual ASR with auto language detection (25 languages)"
+      },
+      "diarization": {
+        "segmentation": "Speech boundary detection for speaker diarization",
+        "embedding_en": "Speaker voice fingerprinting for identification"
       },
       "whisper": {
         "tiny": "Fastest, lower quality",
@@ -1851,7 +1866,10 @@
     },
     "speaker": {
       "you": "You",
-      "them": "Them"
+      "them": "Them",
+      "label": "Speaker {{n}}",
+      "identifyingSpeakers": "Identifying speakers...",
+      "speakersIdentified": "Speakers identified"
     }
   },
   "dictionary": {

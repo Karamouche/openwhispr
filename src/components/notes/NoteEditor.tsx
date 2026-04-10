@@ -124,6 +124,8 @@ export default function NoteEditor({
   const [folderSearch, setFolderSearch] = useState("");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [isDiarizing, setIsDiarizing] = useState(false);
+  const [diarizedSegments, setDiarizedSegments] = useState<TranscriptSegment[] | null>(null);
   const editorRef = useRef<Editor | null>(null);
 
   const embeddedChat = useEmbeddedChat({
@@ -152,9 +154,10 @@ export default function NoteEditor({
   );
 
   const displaySegments = useMemo<TranscriptSegment[]>(() => {
+    if (diarizedSegments && diarizedSegments.length > 0) return diarizedSegments;
     if (meetingSegments && meetingSegments.length > 0) return meetingSegments;
     return parseTranscriptSegments(note.transcript || "");
-  }, [meetingSegments, note.transcript]);
+  }, [diarizedSegments, meetingSegments, note.transcript]);
 
   const hasChatSegments = displaySegments.length > 0;
 
@@ -207,6 +210,8 @@ export default function NoteEditor({
       prevNoteIdRef.current = note.id;
       autoShowDoneRef.current = false;
       setChatMode("hidden");
+      setDiarizedSegments(null);
+      setIsDiarizing(false);
       if (!isMeetingRecording) {
         setViewMode("raw");
       }
@@ -234,6 +239,52 @@ export default function NoteEditor({
       titleRef.current.textContent = note.title || "";
     }
   }, [note.title]);
+
+  // Track meeting recording stop to activate diarization loading state
+  const prevMeetingRecordingRef = useRef(false);
+  const diarizationNoteIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (prevMeetingRecordingRef.current && !isMeetingRecording) {
+      diarizationNoteIdRef.current = note.id;
+      setIsDiarizing(true);
+    }
+    prevMeetingRecordingRef.current = !!isMeetingRecording;
+  }, [isMeetingRecording, note.id]);
+
+  // Listen for diarization results from main process
+  useEffect(() => {
+    const cleanup = window.electronAPI?.onMeetingDiarizationComplete?.((data) => {
+      // Ignore if user navigated away from the recording note
+      if (diarizationNoteIdRef.current !== note.id) {
+        setIsDiarizing(false);
+        diarizationNoteIdRef.current = null;
+        return;
+      }
+
+      diarizationNoteIdRef.current = null;
+      setIsDiarizing(false);
+
+      if (!data?.segments?.length) return;
+
+      const enriched = data.segments.map((s: any, i: number) => ({
+        ...s,
+        id: s.id || `diarized-${i}`,
+      }));
+      setDiarizedSegments(enriched);
+
+      // Persist enriched transcript to the note
+      const serialized = JSON.stringify(
+        enriched.map((s: TranscriptSegment) => ({
+          text: s.text,
+          source: s.source,
+          timestamp: s.timestamp,
+          speaker: s.speaker,
+        }))
+      );
+      window.electronAPI.updateNote(note.id, { transcript: serialized });
+    });
+    return () => cleanup?.();
+  }, [note.id]);
 
   const handleTitleInput = useCallback(() => {
     if (titleRef.current) {
@@ -539,11 +590,21 @@ export default function NoteEditor({
         <div className="flex-1 relative min-h-0">
           <div className="h-full overflow-y-auto">
             {viewMode === "transcript" && (hasChatSegments || isMeetingRecording) ? (
-              <MeetingTranscriptChat
-                segments={displaySegments}
-                micPartial={isMeetingRecording ? meetingMicPartial : undefined}
-                systemPartial={isMeetingRecording ? meetingSystemPartial : undefined}
-              />
+              <>
+                <MeetingTranscriptChat
+                  segments={displaySegments}
+                  micPartial={isMeetingRecording ? meetingMicPartial : undefined}
+                  systemPartial={isMeetingRecording ? meetingSystemPartial : undefined}
+                />
+                {isDiarizing && (
+                  <div className="flex items-center justify-center gap-1.5 py-2">
+                    <Loader2 size={10} className="animate-spin text-foreground/30" />
+                    <span className="text-[11px] text-foreground/30">
+                      {t("notes.speaker.identifyingSpeakers")}
+                    </span>
+                  </div>
+                )}
+              </>
             ) : viewMode === "transcript" && hasMeetingTranscript ? (
               <RichTextEditor value={effectiveTranscript} disabled />
             ) : viewMode === "enhanced" && enhancement ? (

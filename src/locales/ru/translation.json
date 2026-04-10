@@ -1398,6 +1398,17 @@
       "gpuDevice": {
         "title": "GPU транскрипции",
         "description": "GPU для локального распознавания речи"
+      },
+      "diarization": {
+        "title": "Speaker Identification",
+        "description": "Identify individual speakers in meeting recordings",
+        "toggle": "Identify speakers in meetings",
+        "downloadModels": "Download Models",
+        "downloadModelsSize": "Download Models (~35 MB)",
+        "modelsReady": "Models Ready",
+        "downloading": "Downloading...",
+        "deleteModels": "Delete Models",
+        "requiresModels": "Download speaker identification models to enable this feature"
       }
     },
     "intelligence": {
@@ -1477,6 +1488,10 @@
         "gemma_gemma_4_e2b_it_q4_k_m": "Компактная Gemma 4 от Google, быстрая и эффективная",
         "gemma_gemma_3_12b_it_q4_k_m": "Средняя модель Google, сильное рассуждение",
         "gemma_gemma_3_1b_it_q4_k_m": "Сверхбыстрая модель Google, лучшая для очистки коротких диктовок"
+      },
+      "diarization": {
+        "segmentation": "Speech boundary detection for speaker diarization",
+        "embedding_en": "Speaker voice fingerprinting for identification"
       }
     }
   },
@@ -1742,7 +1757,10 @@
     },
     "speaker": {
       "you": "Вы",
-      "them": "Собеседник"
+      "them": "Собеседник",
+      "label": "Участник {{n}}",
+      "identifyingSpeakers": "Определение участников...",
+      "speakersIdentified": "Speakers identified"
     }
   },
   "dictionary": {

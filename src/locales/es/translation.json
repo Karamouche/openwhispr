@@ -1398,6 +1398,17 @@
       "gpuDevice": {
         "title": "GPU de transcripción",
         "description": "GPU usada para transcripción local"
+      },
+      "diarization": {
+        "title": "Speaker Identification",
+        "description": "Identify individual speakers in meeting recordings",
+        "toggle": "Identify speakers in meetings",
+        "downloadModels": "Download Models",
+        "downloadModelsSize": "Download Models (~35 MB)",
+        "modelsReady": "Models Ready",
+        "downloading": "Downloading...",
+        "deleteModels": "Delete Models",
+        "requiresModels": "Download speaker identification models to enable this feature"
       }
     },
     "intelligence": {
@@ -1477,6 +1488,10 @@
         "gemma_gemma_4_e2b_it_q4_k_m": "Gemma 4 compacto de Google, rápido y eficiente",
         "gemma_gemma_3_12b_it_q4_k_m": "Modelo de gama media de Google, razonamiento sólido",
         "gemma_gemma_3_1b_it_q4_k_m": "Modelo Google ultrarrápido, ideal para limpieza de dictado corto"
+      },
+      "diarization": {
+        "segmentation": "Speech boundary detection for speaker diarization",
+        "embedding_en": "Speaker voice fingerprinting for identification"
       }
     }
   },
@@ -1742,7 +1757,10 @@
     },
     "speaker": {
       "you": "Tú",
-      "them": "Ellos"
+      "them": "Ellos",
+      "label": "Participante {{n}}",
+      "identifyingSpeakers": "Identificando participantes...",
+      "speakersIdentified": "Speakers identified"
     }
   },
   "dictionary": {

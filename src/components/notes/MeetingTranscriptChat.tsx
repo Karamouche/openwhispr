@@ -18,6 +18,36 @@ const BUBBLE_STYLES = {
   },
 } as const;
 
+const SPEAKER_COLORS = [
+  "text-blue-400",
+  "text-green-400",
+  "text-purple-400",
+  "text-orange-400",
+  "text-pink-400",
+  "text-cyan-400",
+  "text-yellow-400",
+  "text-red-400",
+];
+
+const SPEAKER_BORDER_COLORS = [
+  "border-l-blue-400/50",
+  "border-l-green-400/50",
+  "border-l-purple-400/50",
+  "border-l-orange-400/50",
+  "border-l-pink-400/50",
+  "border-l-cyan-400/50",
+  "border-l-yellow-400/50",
+  "border-l-red-400/50",
+];
+
+const getSpeakerKey = (segment: TranscriptSegment) =>
+  segment.speaker || segment.source;
+
+const getSpeakerColorIndex = (speaker: string): number => {
+  const match = speaker.match(/speaker_(\d+)/);
+  return match ? Number(match[1]) % SPEAKER_COLORS.length : 0;
+};
+
 function PartialBubble({ text, source }: { text: string; source: "mic" | "system" }) {
   const s = BUBBLE_STYLES[source];
   return (
@@ -87,18 +117,46 @@ export function MeetingTranscriptChat({
       {segments.map((segment, i) => {
         const isMic = segment.source === "mic";
         const prevSegment = i > 0 ? segments[i - 1] : null;
-        const sameSpeaker = prevSegment?.source === segment.source;
+        const sameSpeaker = prevSegment
+          ? getSpeakerKey(prevSegment) === getSpeakerKey(segment)
+          : false;
+
+        const hasSpeaker = !!segment.speaker;
+        const isYou = segment.speaker === "you";
+        const isSystemSpeaker = hasSpeaker && !isYou;
+        const colorIdx = isSystemSpeaker ? getSpeakerColorIndex(segment.speaker!) : 0;
+
+        let speakerLabel: string | null = null;
+        if (hasSpeaker && !sameSpeaker) {
+          if (isYou) {
+            speakerLabel = t("notes.speaker.you");
+          } else {
+            const match = segment.speaker!.match(/speaker_(\d+)/);
+            const n = match ? Number(match[1]) + 1 : 1;
+            speakerLabel = t("notes.speaker.label", { n });
+          }
+        }
 
         return (
           <div
             key={segment.id}
             className={cn(
-              "flex",
-              isMic ? "justify-start" : "justify-end",
+              "flex flex-col",
+              isMic ? "items-start" : "items-end",
               !sameSpeaker && i > 0 && "mt-2"
             )}
             style={{ animation: "agent-message-in 200ms ease-out both" }}
           >
+            {speakerLabel && (
+              <span
+                className={cn(
+                  "text-[11px] font-medium mb-0.5 px-1",
+                  isYou ? "text-primary/60" : SPEAKER_COLORS[colorIdx]
+                )}
+              >
+                {speakerLabel}
+              </span>
+            )}
             <div
               className={cn(
                 "max-w-[80%] px-3 py-1.5",
@@ -110,7 +168,8 @@ export function MeetingTranscriptChat({
                     )
                   : cn(
                       "bg-surface-2 border border-border/30 text-foreground",
-                      sameSpeaker ? "rounded-lg rounded-tr-sm" : "rounded-lg rounded-br-sm"
+                      sameSpeaker ? "rounded-lg rounded-tr-sm" : "rounded-lg rounded-br-sm",
+                      isSystemSpeaker && cn("border-l-2", SPEAKER_BORDER_COLORS[colorIdx])
                     )
               )}
             >

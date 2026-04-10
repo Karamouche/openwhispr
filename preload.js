@@ -249,6 +249,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
   parakeetServerStop: () => ipcRenderer.invoke("parakeet-server-stop"),
   parakeetServerStatus: () => ipcRenderer.invoke("parakeet-server-status"),
 
+  // Diarization (speaker identification) functions
+  downloadDiarizationModels: () => ipcRenderer.invoke("download-diarization-models"),
+  getDiarizationModelStatus: () => ipcRenderer.invoke("get-diarization-model-status"),
+  deleteDiarizationModels: () => ipcRenderer.invoke("delete-diarization-models"),
+  cancelDiarizationDownload: () => ipcRenderer.invoke("cancel-diarization-download"),
+  onDiarizationDownloadProgress: registerListener(
+    "diarization-download-progress",
+    (callback) => (_event, data) => callback(data)
+  ),
+  onMeetingDiarizationComplete: registerListener(
+    "meeting-diarization-complete",
+    (callback) => (_event, data) => callback(data)
+  ),
+
   // Window control functions
   windowMinimize: () => ipcRenderer.invoke("window-minimize"),
   windowMaximize: () => ipcRenderer.invoke("window-maximize"),

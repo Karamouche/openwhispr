@@ -1307,6 +1307,27 @@ declare global {
       ) => () => void;
       onMeetingTranscriptionError?: (callback: (error: string) => void) => () => void;
 
+      // Speaker diarization
+      downloadDiarizationModels?: () => Promise<{ success: boolean; error?: string }>;
+      getDiarizationModelStatus?: () => Promise<{
+        available: boolean;
+        modelsDownloaded: boolean;
+      }>;
+      deleteDiarizationModels?: () => Promise<{ success: boolean }>;
+      cancelDiarizationDownload?: () => Promise<{ success: boolean; message?: string; error?: string }>;
+      onDiarizationDownloadProgress?: (callback: (data: any) => void) => () => void;
+      onMeetingDiarizationComplete?: (
+        callback: (data: {
+          segments: Array<{
+            id: string;
+            text: string;
+            source: "mic" | "system";
+            timestamp?: number;
+            speaker?: string;
+          }>;
+        }) => void
+      ) => () => void;
+
       // Dictation realtime streaming
       dictationRealtimeWarmup?: (options: {
         model?: string;

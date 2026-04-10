@@ -8,6 +8,7 @@ export interface TranscriptSegment {
   text: string;
   source: "mic" | "system";
   timestamp?: number;
+  speaker?: string;
 }
 
 interface UseMeetingTranscriptionReturn {

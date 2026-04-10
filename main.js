@@ -194,6 +194,7 @@ const DatabaseManager = require("./src/helpers/database");
 const ClipboardManager = require("./src/helpers/clipboard");
 const WhisperManager = require("./src/helpers/whisper");
 const ParakeetManager = require("./src/helpers/parakeet");
+const DiarizationManager = require("./src/helpers/diarization");
 const TrayManager = require("./src/helpers/tray");
 const IPCHandlers = require("./src/helpers/ipcHandlers");
 const UpdateManager = require("./src/updater");
@@ -219,6 +220,7 @@ let databaseManager = null;
 let clipboardManager = null;
 let whisperManager = null;
 let parakeetManager = null;
+let diarizationManager = null;
 let trayManager = null;
 let updateManager = null;
 let globeKeyManager = null;
@@ -292,6 +294,7 @@ function initializeCoreManagers() {
     whisperCudaManager = new WhisperCudaManager();
   }
   parakeetManager = new ParakeetManager();
+  diarizationManager = new DiarizationManager();
   googleCalendarManager = new GoogleCalendarManager(databaseManager, windowManager);
   meetingDetectionEngine = new MeetingDetectionEngine(
     googleCalendarManager,
@@ -315,6 +318,7 @@ function initializeCoreManagers() {
     clipboardManager,
     whisperManager,
     parakeetManager,
+    diarizationManager,
     windowManager,
     updateManager,
     windowsKeyManager,
@@ -1183,6 +1187,9 @@ if (gotSingleInstanceLock) {
     // Stop parakeet WS server if running
     if (parakeetManager) {
       parakeetManager.stopServer().catch(() => {});
+    }
+    if (diarizationManager) {
+      diarizationManager.shutdown().catch(() => {});
     }
     // Stop llama-server if running
     const modelManager = require("./src/helpers/modelManagerBridge").default;

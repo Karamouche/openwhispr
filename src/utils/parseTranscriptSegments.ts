@@ -7,12 +7,14 @@ export function parseTranscriptSegments(raw: string): TranscriptSegment[] {
       text: string;
       source: "mic" | "system";
       timestamp?: number;
+      speaker?: string;
     }>;
     return parsed.map((s, i) => ({
       id: `stored-${i}`,
       text: s.text,
       source: s.source,
       timestamp: s.timestamp,
+      speaker: s.speaker,
     }));
   } catch (e) {
     logger.warn("Failed to parse transcript segments", e);

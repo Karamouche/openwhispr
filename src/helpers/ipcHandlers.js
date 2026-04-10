@@ -95,6 +95,7 @@ class IPCHandlers {
     this.clipboardManager = managers.clipboardManager;
     this.whisperManager = managers.whisperManager;
     this.parakeetManager = managers.parakeetManager;
+    this.diarizationManager = managers.diarizationManager;
     this.windowManager = managers.windowManager;
     this.updateManager = managers.updateManager;
     this.windowsKeyManager = managers.windowsKeyManager;
@@ -1461,6 +1462,52 @@ class IPCHandlers {
       return this.parakeetManager.getServerStatus();
     });
 
+    // Diarization model management
+    ipcMain.handle("download-diarization-models", async (event) => {
+      try {
+        const result = await this.diarizationManager.downloadModels((progressData) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send("diarization-download-progress", progressData);
+          }
+        });
+        return result;
+      } catch (error) {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send("diarization-download-progress", {
+            type: "error",
+            error: error.message,
+            code: error.code || "DOWNLOAD_FAILED",
+          });
+        }
+        return {
+          success: false,
+          error: error.message,
+          code: error.code || "DOWNLOAD_FAILED",
+        };
+      }
+    });
+
+    ipcMain.handle("get-diarization-model-status", async () => {
+      return {
+        available: this.diarizationManager?.isAvailable() ?? false,
+        modelsDownloaded: this.diarizationManager?.isModelDownloaded() ?? false,
+      };
+    });
+
+    ipcMain.handle("delete-diarization-models", async () => {
+      try {
+        await this.diarizationManager.deleteModels();
+        return { success: true };
+      } catch (error) {
+        debugLogger.error("Failed to delete diarization models", { error: error.message });
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle("cancel-diarization-download", async () => {
+      return this.diarizationManager.cancelDownload();
+    });
+
     ipcMain.handle("cleanup-app", async (event) => {
       const fs = require("fs");
       const os = require("os");
@@ -2778,6 +2825,7 @@ class IPCHandlers {
           text: latestSegment.slice(0, 80),
           segmentCount: segments.length,
         });
+        meetingDiarizationSegments.push({ text: latestSegment, source, timestamp });
         send("meeting-transcription-segment", {
           text: latestSegment,
           source,
@@ -2922,6 +2970,10 @@ class IPCHandlers {
       return Buffer.concat([header, pcmBuffer]);
     };
 
+    let meetingDiarizationStream = null; // WriteStream for system audio PCM (disk spooling)
+    let meetingDiarizationPath = null; // temp file path for spooled PCM
+    let meetingDiarizationSegments = []; // final transcript segments for post-recording speaker merge
+
     let meetingLocalMode = false;
     let meetingLocalBuffers = { mic: [], system: [] };
     let meetingLocalTimer = null;
@@ -2968,12 +3020,15 @@ class IPCHandlers {
           const text = result.text.trim();
           meetingLocalTranscript += (meetingLocalTranscript ? " " : "") + text;
 
+          const segTimestamp = Date.now();
+          meetingDiarizationSegments.push({ text, source, timestamp: segTimestamp });
+
           if (meetingLocalWin && !meetingLocalWin.isDestroyed()) {
             meetingLocalWin.webContents.send("meeting-transcription-segment", {
               text,
               source,
               type: "final",
-              timestamp: Date.now(),
+              timestamp: segTimestamp,
             });
           }
         }
@@ -3006,6 +3061,15 @@ class IPCHandlers {
       }
       meetingLocalMode = false;
       meetingLocalBuffers = { mic: [], system: [] };
+      if (meetingDiarizationStream) {
+        meetingDiarizationStream.end();
+        meetingDiarizationStream = null;
+      }
+      if (meetingDiarizationPath) {
+        fs.unlink(meetingDiarizationPath, () => {});
+        meetingDiarizationPath = null;
+      }
+      meetingDiarizationSegments = [];
       meetingLocalWin = null;
       meetingLocalTranscript = "";
       meetingLocalProvider = null;
@@ -3176,6 +3240,17 @@ class IPCHandlers {
     });
 
     const sendMeetingAudio = (audioBuffer, source) => {
+      if (source === "system") {
+        if (!meetingDiarizationStream) {
+          const os = require("os");
+          meetingDiarizationPath = path.join(os.tmpdir(), `ow-diarize-raw-${Date.now()}.pcm`);
+          meetingDiarizationStream = fs.createWriteStream(meetingDiarizationPath);
+        }
+        meetingDiarizationStream.write(
+          Buffer.isBuffer(audioBuffer) ? audioBuffer : Buffer.from(audioBuffer)
+        );
+      }
+
       if (meetingLocalMode) {
         const buf = Buffer.isBuffer(audioBuffer) ? audioBuffer : Buffer.from(audioBuffer);
         meetingLocalBuffers[source].push(buf);
@@ -3228,6 +3303,17 @@ class IPCHandlers {
           await this.audioTapManager.stop();
         }
 
+        // Capture diarization state before any reset
+        const diarizationPcmPath = meetingDiarizationPath;
+        const diarizationSegments = meetingDiarizationSegments;
+        if (meetingDiarizationStream) {
+          await new Promise((resolve) => meetingDiarizationStream.end(resolve));
+          meetingDiarizationStream = null;
+        }
+        meetingDiarizationPath = null;
+        meetingDiarizationSegments = [];
+        const diarizationWin = meetingLocalWin || this.windowManager.controlPanelWindow;
+
         if (meetingLocalMode) {
           if (meetingLocalTimer) {
             clearInterval(meetingLocalTimer);
@@ -3240,14 +3326,22 @@ class IPCHandlers {
           }
           const transcript = meetingLocalTranscript;
           resetMeetingLocalState();
+
+          // Fire-and-forget background diarization (or notify skip)
+          this._startOrSkipDiarization(diarizationPcmPath, diarizationSegments, diarizationWin);
+
           return { success: true, transcript };
         }
 
         const results = await disconnectMeetingStreaming();
+        const transcript = [results[0]?.text, results[1]?.text].filter(Boolean).join(" ");
+
+        // Fire-and-forget background diarization (or notify skip)
+        this._startOrSkipDiarization(diarizationPcmPath, diarizationSegments, diarizationWin);
 
         return {
           success: true,
-          transcript: [results[0]?.text, results[1]?.text].filter(Boolean).join(" "),
+          transcript,
         };
       } catch (error) {
         debugLogger.error("Meeting transcription stop error", { error: error.message });
@@ -4992,6 +5086,60 @@ class IPCHandlers {
         return { canceled: true };
       }
     });
+  }
+
+  _startOrSkipDiarization(rawPcmPath, transcriptSegments, win) {
+    const canRun = this.diarizationManager?.isAvailable() && rawPcmPath;
+
+    if (!canRun) {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("meeting-diarization-complete", { segments: [] });
+      }
+      return;
+    }
+
+    const fs = require("fs");
+
+    (async () => {
+      let tmpWav = null;
+      try {
+        tmpWav = await this.diarizationManager.convertRawPcmToWav(rawPcmPath, 24000);
+
+        const diarizationSegments = await this.diarizationManager.diarize(tmpWav);
+
+        const startMs = transcriptSegments[0]?.timestamp || 0;
+        const isEpochMs = startMs > 1e9;
+        const normalized = transcriptSegments.map((seg) => ({
+          ...seg,
+          timestamp:
+            seg.timestamp != null
+              ? isEpochMs
+                ? (seg.timestamp - startMs) / 1000
+                : seg.timestamp
+              : undefined,
+        }));
+
+        const enrichedSegments = this.diarizationManager.mergeWithTranscript(
+          normalized,
+          diarizationSegments
+        );
+
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("meeting-diarization-complete", { segments: enrichedSegments });
+        }
+      } catch (err) {
+        debugLogger.warn("Background diarization failed", { error: err.message });
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("meeting-diarization-complete", { segments: [] });
+        }
+      } finally {
+        // Clean up both the raw PCM spool file and the converted WAV
+        try { fs.unlinkSync(rawPcmPath); } catch (_) {}
+        if (tmpWav) {
+          try { fs.unlinkSync(tmpWav); } catch (_) {}
+        }
+      }
+    })();
   }
 
   broadcastToWindows(channel, payload) {

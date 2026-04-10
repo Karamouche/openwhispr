@@ -1001,7 +1001,12 @@
           "annualEquivalent": "$16.67",
           "includesPrefix": "所有 Pro 功能 +",
           "badge": "最熱門",
-          "features": ["無限會議錄製", "代理模式", "與您的資料對話（即將推出）", "優先支援"],
+          "features": [
+            "無限會議錄製",
+            "代理模式",
+            "與您的資料對話（即將推出）",
+            "優先支援"
+          ],
           "cta": "開始使用",
           "switchToAnnual": "切換為年付"
         },
@@ -1393,6 +1398,17 @@
       "gpuDevice": {
         "title": "轉錄 GPU",
         "description": "用於本機語音辨識的 GPU"
+      },
+      "diarization": {
+        "title": "Speaker Identification",
+        "description": "Identify individual speakers in meeting recordings",
+        "toggle": "Identify speakers in meetings",
+        "downloadModels": "Download Models",
+        "downloadModelsSize": "Download Models (~35 MB)",
+        "modelsReady": "Models Ready",
+        "downloading": "Downloading...",
+        "deleteModels": "Delete Models",
+        "requiresModels": "Download speaker identification models to enable this feature"
       }
     },
     "intelligence": {
@@ -1472,6 +1488,10 @@
         "gemma_gemma_4_e2b_it_q4_k_m": "Google 緊湊型 Gemma 4，快速高效",
         "gemma_gemma_3_12b_it_q4_k_m": "Google 中型模型，強推理能力",
         "gemma_gemma_3_1b_it_q4_k_m": "超快 Google 模型，最適合短語音清理"
+      },
+      "diarization": {
+        "segmentation": "Speech boundary detection for speaker diarization",
+        "embedding_en": "Speaker voice fingerprinting for identification"
       }
     }
   },
@@ -1737,7 +1757,10 @@
     },
     "speaker": {
       "you": "你",
-      "them": "對方"
+      "them": "對方",
+      "label": "發言者 {{n}}",
+      "identifyingSpeakers": "正在辨識發言者...",
+      "speakersIdentified": "Speakers identified"
     }
   },
   "dictionary": {
