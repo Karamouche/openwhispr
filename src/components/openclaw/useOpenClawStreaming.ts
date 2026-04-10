@@ -143,7 +143,17 @@ export function useOpenClawStreaming({
       if (!key) return;
       setAgentState("thinking");
       try {
-        await window.electronAPI?.openclaw?.sendMessage?.(key, userText);
+        const result = await window.electronAPI?.openclaw?.sendMessage?.(key, userText);
+        const messageId = result?.messageId;
+        if (messageId && !assistantIdByMessageIdRef.current.has(messageId)) {
+          const assistantId = crypto.randomUUID();
+          assistantIdByMessageIdRef.current.set(messageId, assistantId);
+          setMessages((prev) => [
+            ...prev,
+            { id: assistantId, role: "assistant", content: "", isStreaming: true },
+          ]);
+          setAgentState("streaming");
+        }
       } catch (error) {
         setAgentState("idle");
         setMessages((prev) => [
