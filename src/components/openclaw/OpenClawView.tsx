@@ -111,13 +111,6 @@ export default function OpenClawView({ onOpenSettings }: OpenClawViewProps) {
 
   const handleTextSubmit = useCallback(
     async (text: string) => {
-      setIsNewChat(false);
-      let convId = activeConversationId;
-      if (!convId) {
-        const title = text.length > 50 ? `${text.slice(0, 50)}...` : text;
-        convId = await persistence.createConversation(title);
-      }
-
       const userMsg = {
         id: crypto.randomUUID(),
         role: "user" as const,
@@ -125,6 +118,18 @@ export default function OpenClawView({ onOpenSettings }: OpenClawViewProps) {
         isStreaming: false,
       };
       persistence.setMessages((prev) => [...prev, userMsg]);
+
+      let convId = activeConversationId;
+      try {
+        if (!convId) {
+          const title = text.length > 50 ? `${text.slice(0, 50)}...` : text;
+          convId = await persistence.createConversation(title);
+        }
+        setIsNewChat(false);
+      } catch {
+        return;
+      }
+
       await persistence.saveUserMessage(text);
 
       const allMessages = [...persistence.messages, userMsg];
