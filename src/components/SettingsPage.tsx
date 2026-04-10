@@ -16,6 +16,8 @@ import {
   Monitor,
   Cloud,
   Key,
+  Cpu,
+  Network,
   Sparkles,
   AlertTriangle,
   Loader2,
@@ -35,6 +37,8 @@ import MicrophoneSettings from "./ui/MicrophoneSettings";
 import PermissionCard from "./ui/PermissionCard";
 import PasteToolsInfo from "./ui/PasteToolsInfo";
 import TranscriptionModelPicker from "./TranscriptionModelPicker";
+import { ModeSelector } from "./ui/ModeSelector";
+import SelfHostedPanel from "./SelfHostedPanel";
 import {
   ConfirmDialog,
   AlertDialog,
@@ -71,7 +75,12 @@ import { Skeleton } from "./ui/skeleton";
 import { Progress } from "./ui/progress";
 import { useToast } from "./ui/Toast";
 import { useTheme } from "../hooks/useTheme";
-import type { GpuDevice, LocalTranscriptionProvider } from "../types/electron";
+import type {
+  GpuDevice,
+  LocalTranscriptionProvider,
+  InferenceMode,
+  SelfHostedType,
+} from "../types/electron";
 import logger from "../utils/logger";
 import { SettingsRow } from "./ui/SettingsSection";
 import { useSettingsLayout } from "./ui/SidebarModal";
@@ -183,6 +192,12 @@ interface TranscriptionSectionProps {
   setCustomTranscriptionApiKey: (key: string) => void;
   cloudTranscriptionBaseUrl?: string;
   setCloudTranscriptionBaseUrl: (url: string) => void;
+  transcriptionMode: InferenceMode;
+  setTranscriptionMode: (mode: InferenceMode) => void;
+  remoteTranscriptionType: SelfHostedType;
+  setRemoteTranscriptionType: (type: SelfHostedType) => void;
+  remoteTranscriptionUrl: string;
+  setRemoteTranscriptionUrl: (url: string) => void;
   toast: (opts: {
     title: string;
     description: string;
@@ -218,11 +233,105 @@ function TranscriptionSection({
   setCustomTranscriptionApiKey,
   cloudTranscriptionBaseUrl,
   setCloudTranscriptionBaseUrl,
+  transcriptionMode,
+  setTranscriptionMode,
+  remoteTranscriptionType,
+  setRemoteTranscriptionType,
+  remoteTranscriptionUrl,
+  setRemoteTranscriptionUrl,
   toast,
 }: TranscriptionSectionProps) {
   const { t } = useTranslation();
-  const isCustomMode = cloudTranscriptionMode === "byok" || useLocalWhisper;
-  const isCloudMode = isSignedIn && cloudTranscriptionMode === "openwhispr" && !useLocalWhisper;
+
+  const transcriptionModes = [
+    {
+      id: "openwhispr" as InferenceMode,
+      label: t("settingsPage.transcription.modes.openwhispr"),
+      icon: <Cloud className="w-3.5 h-3.5" />,
+    },
+    {
+      id: "providers" as InferenceMode,
+      label: t("settingsPage.transcription.modes.providers"),
+      icon: <Key className="w-3.5 h-3.5" />,
+    },
+    {
+      id: "local" as InferenceMode,
+      label: t("settingsPage.transcription.modes.local"),
+      icon: <Cpu className="w-3.5 h-3.5" />,
+    },
+    {
+      id: "self-hosted" as InferenceMode,
+      label: t("settingsPage.transcription.modes.selfHosted"),
+      icon: <Network className="w-3.5 h-3.5" />,
+    },
+  ];
+
+  const handleTranscriptionModeSelect = (mode: InferenceMode) => {
+    if (mode === transcriptionMode) return;
+    setTranscriptionMode(mode);
+    setUseLocalWhisper(mode === "local");
+    updateTranscriptionSettings({ useLocalWhisper: mode === "local" });
+    setCloudTranscriptionMode(mode === "openwhispr" ? "openwhispr" : "byok");
+
+    const toastKey = {
+      openwhispr: "switchedCloud",
+      providers: "switchedProviders",
+      local: "switchedLocal",
+      "self-hosted": "switchedSelfHosted",
+    }[mode];
+    toast({
+      title: t(`settingsPage.transcription.toasts.${toastKey}.title`),
+      description: t(`settingsPage.transcription.toasts.${toastKey}.description`),
+      variant: "success",
+      duration: 3000,
+    });
+  };
+
+  const handleLocalModelSelect = useCallback(
+    (modelId: string) => {
+      if (localTranscriptionProvider === "nvidia") {
+        setParakeetModel(modelId);
+      } else {
+        setWhisperModel(modelId);
+      }
+    },
+    [localTranscriptionProvider, setParakeetModel, setWhisperModel]
+  );
+
+  const renderTranscriptionPicker = (mode?: "cloud" | "local") => (
+    <TranscriptionModelPicker
+      selectedCloudProvider={cloudTranscriptionProvider}
+      onCloudProviderSelect={setCloudTranscriptionProvider}
+      selectedCloudModel={cloudTranscriptionModel}
+      onCloudModelSelect={setCloudTranscriptionModel}
+      selectedLocalModel={localTranscriptionProvider === "nvidia" ? parakeetModel : whisperModel}
+      onLocalModelSelect={handleLocalModelSelect}
+      selectedLocalProvider={localTranscriptionProvider}
+      onLocalProviderSelect={setLocalTranscriptionProvider}
+      useLocalWhisper={mode === "local" || (!mode && useLocalWhisper)}
+      onModeChange={
+        mode
+          ? () => {}
+          : (isLocal) => {
+              setUseLocalWhisper(isLocal);
+              updateTranscriptionSettings({ useLocalWhisper: isLocal });
+              if (isLocal) setCloudTranscriptionMode("byok");
+            }
+      }
+      mode={mode}
+      openaiApiKey={openaiApiKey}
+      setOpenaiApiKey={setOpenaiApiKey}
+      groqApiKey={groqApiKey}
+      setGroqApiKey={setGroqApiKey}
+      mistralApiKey={mistralApiKey}
+      setMistralApiKey={setMistralApiKey}
+      customTranscriptionApiKey={customTranscriptionApiKey}
+      setCustomTranscriptionApiKey={setCustomTranscriptionApiKey}
+      cloudTranscriptionBaseUrl={cloudTranscriptionBaseUrl}
+      setCloudTranscriptionBaseUrl={setCloudTranscriptionBaseUrl}
+      variant="settings"
+    />
+  );
 
   return (
     <div className="space-y-4">
@@ -231,172 +340,37 @@ function TranscriptionSection({
         description={t("settingsPage.transcription.description")}
       />
 
-      {/* Mode selector */}
-      {isSignedIn && (
-        <SettingsPanel>
-          <SettingsPanelRow>
-            <button
-              onClick={() => {
-                if (!isCloudMode) {
-                  setCloudTranscriptionMode("openwhispr");
-                  setUseLocalWhisper(false);
-                  updateTranscriptionSettings({ useLocalWhisper: false });
-                  toast({
-                    title: t("settingsPage.transcription.toasts.switchedCloud.title"),
-                    description: t("settingsPage.transcription.toasts.switchedCloud.description"),
-                    variant: "success",
-                    duration: 3000,
-                  });
-                }
-              }}
-              className="w-full flex items-center gap-3 text-left cursor-pointer group"
-            >
-              <div
-                className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-                  isCloudMode
-                    ? "bg-primary/10 dark:bg-primary/15"
-                    : "bg-muted/60 dark:bg-surface-raised group-hover:bg-muted dark:group-hover:bg-surface-3"
-                }`}
-              >
-                <Cloud
-                  className={`w-4 h-4 transition-colors ${
-                    isCloudMode ? "text-primary" : "text-muted-foreground"
-                  }`}
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-foreground">
-                    {t("settingsPage.transcription.openwhisprCloud")}
-                  </span>
-                  {isCloudMode && (
-                    <span className="text-xs font-medium text-primary bg-primary/10 dark:bg-primary/15 px-1.5 py-px rounded-sm">
-                      {t("common.active")}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground/80 mt-0.5">
-                  {t("settingsPage.transcription.openwhisprCloudDescription")}
-                </p>
-              </div>
-              <div
-                className={`w-4 h-4 rounded-full border-2 shrink-0 transition-colors ${
-                  isCloudMode
-                    ? "border-primary bg-primary"
-                    : "border-border-hover dark:border-border-subtle"
-                }`}
-              >
-                {isCloudMode && (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground" />
-                  </div>
-                )}
-              </div>
-            </button>
-          </SettingsPanelRow>
-          <SettingsPanelRow>
-            <button
-              onClick={() => {
-                if (!isCustomMode) {
-                  setCloudTranscriptionMode("byok");
-                  setUseLocalWhisper(false);
-                  updateTranscriptionSettings({ useLocalWhisper: false });
-                  toast({
-                    title: t("settingsPage.transcription.toasts.switchedCustom.title"),
-                    description: t("settingsPage.transcription.toasts.switchedCustom.description"),
-                    variant: "success",
-                    duration: 3000,
-                  });
-                }
-              }}
-              className="w-full flex items-center gap-3 text-left cursor-pointer group"
-            >
-              <div
-                className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-                  isCustomMode
-                    ? "bg-accent/10 dark:bg-accent/15"
-                    : "bg-muted/60 dark:bg-surface-raised group-hover:bg-muted dark:group-hover:bg-surface-3"
-                }`}
-              >
-                <Key
-                  className={`w-4 h-4 transition-colors ${
-                    isCustomMode ? "text-accent" : "text-muted-foreground"
-                  }`}
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-foreground">
-                    {t("settingsPage.transcription.customSetup")}
-                  </span>
-                  {isCustomMode && (
-                    <span className="text-xs font-medium text-accent bg-accent/10 dark:bg-accent/15 px-1.5 py-px rounded-sm">
-                      {t("common.active")}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground/80 mt-0.5">
-                  {t("settingsPage.transcription.customSetupDescription")}
-                </p>
-              </div>
-              <div
-                className={`w-4 h-4 rounded-full border-2 shrink-0 transition-colors ${
-                  isCustomMode
-                    ? "border-accent bg-accent"
-                    : "border-border-hover dark:border-border-subtle"
-                }`}
-              >
-                {isCustomMode && (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-accent-foreground" />
-                  </div>
-                )}
-              </div>
-            </button>
-          </SettingsPanelRow>
-        </SettingsPanel>
+      {isSignedIn ? (
+        <>
+          <ModeSelector
+            modes={transcriptionModes}
+            selectedMode={transcriptionMode}
+            onSelect={handleTranscriptionModeSelect}
+          />
+
+          {transcriptionMode === "providers" && renderTranscriptionPicker("cloud")}
+          {transcriptionMode === "local" && renderTranscriptionPicker("local")}
+
+          {transcriptionMode === "self-hosted" && (
+            <SelfHostedPanel
+              service="transcription"
+              selectedType={remoteTranscriptionType}
+              onTypeSelect={setRemoteTranscriptionType}
+              lanUrl={remoteTranscriptionUrl}
+              onLanUrlChange={setRemoteTranscriptionUrl}
+              compatibleUrl={cloudTranscriptionBaseUrl || ""}
+              onCompatibleUrlChange={setCloudTranscriptionBaseUrl}
+              compatibleApiKey={customTranscriptionApiKey}
+              onCompatibleApiKeyChange={setCustomTranscriptionApiKey}
+              compatibleModel={cloudTranscriptionModel}
+              onCompatibleModelChange={setCloudTranscriptionModel}
+            />
+          )}
+        </>
+      ) : (
+        renderTranscriptionPicker()
       )}
 
-      {/* Custom Setup model picker — shown when Custom Setup is active or not signed in */}
-      {(isCustomMode || !isSignedIn) && (
-        <TranscriptionModelPicker
-          selectedCloudProvider={cloudTranscriptionProvider}
-          onCloudProviderSelect={setCloudTranscriptionProvider}
-          selectedCloudModel={cloudTranscriptionModel}
-          onCloudModelSelect={setCloudTranscriptionModel}
-          selectedLocalModel={
-            localTranscriptionProvider === "nvidia" ? parakeetModel : whisperModel
-          }
-          onLocalModelSelect={(modelId) => {
-            if (localTranscriptionProvider === "nvidia") {
-              setParakeetModel(modelId);
-            } else {
-              setWhisperModel(modelId);
-            }
-          }}
-          selectedLocalProvider={localTranscriptionProvider}
-          onLocalProviderSelect={setLocalTranscriptionProvider}
-          useLocalWhisper={useLocalWhisper}
-          onModeChange={(isLocal) => {
-            setUseLocalWhisper(isLocal);
-            updateTranscriptionSettings({ useLocalWhisper: isLocal });
-            if (isLocal) {
-              setCloudTranscriptionMode("byok");
-            }
-          }}
-          openaiApiKey={openaiApiKey}
-          setOpenaiApiKey={setOpenaiApiKey}
-          groqApiKey={groqApiKey}
-          setGroqApiKey={setGroqApiKey}
-          mistralApiKey={mistralApiKey}
-          setMistralApiKey={setMistralApiKey}
-          customTranscriptionApiKey={customTranscriptionApiKey}
-          setCustomTranscriptionApiKey={setCustomTranscriptionApiKey}
-          cloudTranscriptionBaseUrl={cloudTranscriptionBaseUrl}
-          setCloudTranscriptionBaseUrl={setCloudTranscriptionBaseUrl}
-          variant="settings"
-        />
-      )}
       <GpuDeviceSelector purpose="transcription" />
     </div>
   );
@@ -424,6 +398,12 @@ interface AiModelsSectionProps {
   setGroqApiKey: (key: string) => void;
   customReasoningApiKey: string;
   setCustomReasoningApiKey: (key: string) => void;
+  reasoningMode: InferenceMode;
+  setReasoningMode: (mode: InferenceMode) => void;
+  remoteReasoningType: SelfHostedType;
+  setRemoteReasoningType: (type: SelfHostedType) => void;
+  remoteReasoningUrl: string;
+  setRemoteReasoningUrl: (url: string) => void;
   toast: (opts: {
     title: string;
     description: string;
@@ -454,11 +434,82 @@ function AiModelsSection({
   setGroqApiKey,
   customReasoningApiKey,
   setCustomReasoningApiKey,
+  reasoningMode,
+  setReasoningMode,
+  remoteReasoningType,
+  setRemoteReasoningType,
+  remoteReasoningUrl,
+  setRemoteReasoningUrl,
   toast,
 }: AiModelsSectionProps) {
   const { t } = useTranslation();
-  const isCustomMode = cloudReasoningMode === "byok";
-  const isCloudMode = isSignedIn && cloudReasoningMode === "openwhispr";
+
+  const aiModes = [
+    {
+      id: "openwhispr" as InferenceMode,
+      label: t("settingsPage.aiModels.modes.openwhispr"),
+      icon: <Cloud className="w-3.5 h-3.5" />,
+    },
+    {
+      id: "providers" as InferenceMode,
+      label: t("settingsPage.aiModels.modes.providers"),
+      icon: <Key className="w-3.5 h-3.5" />,
+    },
+    {
+      id: "local" as InferenceMode,
+      label: t("settingsPage.aiModels.modes.local"),
+      icon: <Cpu className="w-3.5 h-3.5" />,
+    },
+    {
+      id: "self-hosted" as InferenceMode,
+      label: t("settingsPage.aiModels.modes.selfHosted"),
+      icon: <Network className="w-3.5 h-3.5" />,
+    },
+  ];
+
+  const handleReasoningModeSelect = (mode: InferenceMode) => {
+    if (mode === reasoningMode) return;
+    setReasoningMode(mode);
+    setCloudReasoningMode(mode === "openwhispr" ? "openwhispr" : "byok");
+    if (mode === "openwhispr" || mode === "self-hosted") {
+      window.electronAPI?.llamaServerStop?.();
+    }
+
+    const toastKey = {
+      openwhispr: "switchedCloud",
+      providers: "switchedProviders",
+      local: "switchedLocal",
+      "self-hosted": "switchedSelfHosted",
+    }[mode];
+    toast({
+      title: t(`settingsPage.aiModels.toasts.${toastKey}.title`),
+      description: t(`settingsPage.aiModels.toasts.${toastKey}.description`),
+      variant: "success",
+      duration: 3000,
+    });
+  };
+
+  const renderReasoningSelector = (mode?: "cloud" | "local") => (
+    <ReasoningModelSelector
+      reasoningModel={reasoningModel}
+      setReasoningModel={setReasoningModel}
+      localReasoningProvider={reasoningProvider}
+      setLocalReasoningProvider={setReasoningProvider}
+      cloudReasoningBaseUrl={cloudReasoningBaseUrl}
+      setCloudReasoningBaseUrl={setCloudReasoningBaseUrl}
+      openaiApiKey={openaiApiKey}
+      setOpenaiApiKey={setOpenaiApiKey}
+      anthropicApiKey={anthropicApiKey}
+      setAnthropicApiKey={setAnthropicApiKey}
+      geminiApiKey={geminiApiKey}
+      setGeminiApiKey={setGeminiApiKey}
+      groqApiKey={groqApiKey}
+      setGroqApiKey={setGroqApiKey}
+      customReasoningApiKey={customReasoningApiKey}
+      setCustomReasoningApiKey={setCustomReasoningApiKey}
+      mode={mode}
+    />
+  );
 
   return (
     <div className="space-y-4">
@@ -467,7 +518,6 @@ function AiModelsSection({
         description={t("settingsPage.aiModels.description")}
       />
 
-      {/* Enable toggle — always at top */}
       <SettingsPanel>
         <SettingsPanelRow>
           <SettingsRow
@@ -481,149 +531,35 @@ function AiModelsSection({
 
       {useReasoningModel && (
         <>
-          {/* Mode selector */}
-          {isSignedIn && (
-            <SettingsPanel>
-              <SettingsPanelRow>
-                <button
-                  onClick={() => {
-                    if (!isCloudMode) {
-                      setCloudReasoningMode("openwhispr");
-                      window.electronAPI?.llamaServerStop?.();
-                      toast({
-                        title: t("settingsPage.aiModels.toasts.switchedCloud.title"),
-                        description: t("settingsPage.aiModels.toasts.switchedCloud.description"),
-                        variant: "success",
-                        duration: 3000,
-                      });
-                    }
-                  }}
-                  className="w-full flex items-center gap-3 text-left cursor-pointer group"
-                >
-                  <div
-                    className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-                      isCloudMode
-                        ? "bg-primary/10 dark:bg-primary/15"
-                        : "bg-muted/60 dark:bg-surface-raised group-hover:bg-muted dark:group-hover:bg-surface-3"
-                    }`}
-                  >
-                    <Cloud
-                      className={`w-4 h-4 transition-colors ${
-                        isCloudMode ? "text-primary" : "text-muted-foreground"
-                      }`}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-foreground">
-                        {t("settingsPage.aiModels.openwhisprCloud")}
-                      </span>
-                      {isCloudMode && (
-                        <span className="text-xs font-medium text-primary bg-primary/10 dark:bg-primary/15 px-1.5 py-px rounded-sm">
-                          {t("common.active")}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground/80 mt-0.5">
-                      {t("settingsPage.aiModels.openwhisprCloudDescription")}
-                    </p>
-                  </div>
-                  <div
-                    className={`w-4 h-4 rounded-full border-2 shrink-0 transition-colors ${
-                      isCloudMode
-                        ? "border-primary bg-primary"
-                        : "border-border-hover dark:border-border-subtle"
-                    }`}
-                  >
-                    {isCloudMode && (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground" />
-                      </div>
-                    )}
-                  </div>
-                </button>
-              </SettingsPanelRow>
-              <SettingsPanelRow>
-                <button
-                  onClick={() => {
-                    if (!isCustomMode) {
-                      setCloudReasoningMode("byok");
-                      toast({
-                        title: t("settingsPage.aiModels.toasts.switchedCustom.title"),
-                        description: t("settingsPage.aiModels.toasts.switchedCustom.description"),
-                        variant: "success",
-                        duration: 3000,
-                      });
-                    }
-                  }}
-                  className="w-full flex items-center gap-3 text-left cursor-pointer group"
-                >
-                  <div
-                    className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-                      isCustomMode
-                        ? "bg-accent/10 dark:bg-accent/15"
-                        : "bg-muted/60 dark:bg-surface-raised group-hover:bg-muted dark:group-hover:bg-surface-3"
-                    }`}
-                  >
-                    <Key
-                      className={`w-4 h-4 transition-colors ${
-                        isCustomMode ? "text-accent" : "text-muted-foreground"
-                      }`}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-foreground">
-                        {t("settingsPage.aiModels.customSetup")}
-                      </span>
-                      {isCustomMode && (
-                        <span className="text-xs font-medium text-accent bg-accent/10 dark:bg-accent/15 px-1.5 py-px rounded-sm">
-                          {t("common.active")}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground/80 mt-0.5">
-                      {t("settingsPage.aiModels.customSetupDescription")}
-                    </p>
-                  </div>
-                  <div
-                    className={`w-4 h-4 rounded-full border-2 shrink-0 transition-colors ${
-                      isCustomMode
-                        ? "border-accent bg-accent"
-                        : "border-border-hover dark:border-border-subtle"
-                    }`}
-                  >
-                    {isCustomMode && (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 rounded-full bg-accent-foreground" />
-                      </div>
-                    )}
-                  </div>
-                </button>
-              </SettingsPanelRow>
-            </SettingsPanel>
-          )}
+          {isSignedIn ? (
+            <>
+              <ModeSelector
+                modes={aiModes}
+                selectedMode={reasoningMode}
+                onSelect={handleReasoningModeSelect}
+              />
 
-          {/* Custom Setup model picker — shown when Custom Setup is active or not signed in */}
-          {(isCustomMode || !isSignedIn) && (
-            <ReasoningModelSelector
-              reasoningModel={reasoningModel}
-              setReasoningModel={setReasoningModel}
-              localReasoningProvider={reasoningProvider}
-              setLocalReasoningProvider={setReasoningProvider}
-              cloudReasoningBaseUrl={cloudReasoningBaseUrl}
-              setCloudReasoningBaseUrl={setCloudReasoningBaseUrl}
-              openaiApiKey={openaiApiKey}
-              setOpenaiApiKey={setOpenaiApiKey}
-              anthropicApiKey={anthropicApiKey}
-              setAnthropicApiKey={setAnthropicApiKey}
-              geminiApiKey={geminiApiKey}
-              setGeminiApiKey={setGeminiApiKey}
-              groqApiKey={groqApiKey}
-              setGroqApiKey={setGroqApiKey}
-              customReasoningApiKey={customReasoningApiKey}
-              setCustomReasoningApiKey={setCustomReasoningApiKey}
-            />
+              {reasoningMode === "providers" && renderReasoningSelector("cloud")}
+              {reasoningMode === "local" && renderReasoningSelector("local")}
+
+              {reasoningMode === "self-hosted" && (
+                <SelfHostedPanel
+                  service="reasoning"
+                  selectedType={remoteReasoningType}
+                  onTypeSelect={setRemoteReasoningType}
+                  lanUrl={remoteReasoningUrl}
+                  onLanUrlChange={setRemoteReasoningUrl}
+                  compatibleUrl={cloudReasoningBaseUrl}
+                  onCompatibleUrlChange={setCloudReasoningBaseUrl}
+                  compatibleApiKey={customReasoningApiKey}
+                  onCompatibleApiKeyChange={setCustomReasoningApiKey}
+                  compatibleModel={reasoningModel}
+                  onCompatibleModelChange={setReasoningModel}
+                />
+              )}
+            </>
+          ) : (
+            renderReasoningSelector()
           )}
           <GpuDeviceSelector purpose="intelligence" />
         </>
@@ -765,6 +701,18 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
     setCloudTranscriptionMode,
     cloudReasoningMode,
     setCloudReasoningMode,
+    transcriptionMode,
+    setTranscriptionMode,
+    remoteTranscriptionType,
+    setRemoteTranscriptionType,
+    remoteTranscriptionUrl,
+    setRemoteTranscriptionUrl,
+    reasoningMode,
+    setReasoningMode,
+    remoteReasoningType,
+    setRemoteReasoningType,
+    remoteReasoningUrl,
+    setRemoteReasoningUrl,
     audioCuesEnabled,
     setAudioCuesEnabled,
     pauseMediaOnDictation,
@@ -2963,17 +2911,19 @@ EOF`,
                     disabled={isHotkeyRegistering}
                     validate={validateDictationHotkey}
                   />
-                  {effectiveDefaultHotkey && dictationKey && dictationKey !== effectiveDefaultHotkey && (
-                    <button
-                      onClick={() => registerHotkey(effectiveDefaultHotkey)}
-                      disabled={isHotkeyRegistering}
-                      className="mt-2 text-xs text-muted-foreground/70 hover:text-foreground transition-colors disabled:opacity-50"
-                    >
-                      {t("settingsPage.general.hotkey.resetToDefault", {
-                        hotkey: formatHotkeyLabel(effectiveDefaultHotkey),
-                      })}
-                    </button>
-                  )}
+                  {effectiveDefaultHotkey &&
+                    dictationKey &&
+                    dictationKey !== effectiveDefaultHotkey && (
+                      <button
+                        onClick={() => registerHotkey(effectiveDefaultHotkey)}
+                        disabled={isHotkeyRegistering}
+                        className="mt-2 text-xs text-muted-foreground/70 hover:text-foreground transition-colors disabled:opacity-50"
+                      >
+                        {t("settingsPage.general.hotkey.resetToDefault", {
+                          hotkey: formatHotkeyLabel(effectiveDefaultHotkey),
+                        })}
+                      </button>
+                    )}
                 </SettingsPanelRow>
 
                 {!isUsingNativeShortcut && (
@@ -3050,6 +3000,12 @@ EOF`,
             setCustomTranscriptionApiKey={setCustomTranscriptionApiKey}
             cloudTranscriptionBaseUrl={cloudTranscriptionBaseUrl}
             setCloudTranscriptionBaseUrl={setCloudTranscriptionBaseUrl}
+            transcriptionMode={transcriptionMode}
+            setTranscriptionMode={setTranscriptionMode}
+            remoteTranscriptionType={remoteTranscriptionType}
+            setRemoteTranscriptionType={setRemoteTranscriptionType}
+            remoteTranscriptionUrl={remoteTranscriptionUrl}
+            setRemoteTranscriptionUrl={setRemoteTranscriptionUrl}
             toast={toast}
           />
         );
@@ -3081,6 +3037,12 @@ EOF`,
             setGroqApiKey={setGroqApiKey}
             customReasoningApiKey={customReasoningApiKey}
             setCustomReasoningApiKey={setCustomReasoningApiKey}
+            reasoningMode={reasoningMode}
+            setReasoningMode={setReasoningMode}
+            remoteReasoningType={remoteReasoningType}
+            setRemoteReasoningType={setRemoteReasoningType}
+            remoteReasoningUrl={remoteReasoningUrl}
+            setRemoteReasoningUrl={setRemoteReasoningUrl}
             toast={toast}
           />
         );
@@ -3222,6 +3184,12 @@ EOF`,
               setGroqApiKey={setGroqApiKey}
               customReasoningApiKey={customReasoningApiKey}
               setCustomReasoningApiKey={setCustomReasoningApiKey}
+              reasoningMode={reasoningMode}
+              setReasoningMode={setReasoningMode}
+              remoteReasoningType={remoteReasoningType}
+              setRemoteReasoningType={setRemoteReasoningType}
+              remoteReasoningUrl={remoteReasoningUrl}
+              setRemoteReasoningUrl={setRemoteReasoningUrl}
               toast={toast}
             />
 

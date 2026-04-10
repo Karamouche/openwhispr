@@ -1,5 +1,9 @@
 export type LocalTranscriptionProvider = "whisper" | "nvidia";
 
+export type InferenceMode = "openwhispr" | "providers" | "local" | "self-hosted";
+
+export type SelfHostedType = "openai-compatible" | "lan";
+
 export type TranscriptionStatus = "completed" | "failed" | "pending";
 
 export interface TranscriptionItem {
@@ -350,6 +354,9 @@ declare global {
           cloudTranscriptionBaseUrl?: string;
           parakeetModel: string;
           whisperModel: string;
+          transcriptionMode?: InferenceMode;
+          remoteTranscriptionType?: SelfHostedType;
+          remoteTranscriptionUrl?: string;
         }
       ) => Promise<{ success: boolean; transcription?: TranscriptionItem; error?: string }>;
       updateTranscriptionText: (
@@ -511,6 +518,10 @@ declare global {
 
       // Whisper operations (whisper.cpp)
       transcribeLocalWhisper: (audioBlob: Blob | ArrayBuffer, options?: any) => Promise<any>;
+      transcribeLanWhisper: (
+        audioBlob: Blob | ArrayBuffer,
+        options?: { url: string; language?: string; initialPrompt?: string }
+      ) => Promise<any>;
       checkWhisperInstallation: () => Promise<WhisperCheckResult>;
       downloadWhisperModel: (modelName: string) => Promise<WhisperModelResult>;
       onWhisperDownloadProgress: (
@@ -1252,9 +1263,7 @@ declare global {
       }>;
 
       // Contacts
-      searchContacts: (
-        query: string
-      ) => Promise<{
+      searchContacts: (query: string) => Promise<{
         success: boolean;
         contacts: Array<{ email: string; display_name: string | null }>;
       }>;

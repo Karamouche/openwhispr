@@ -4,7 +4,7 @@ import i18n, { normalizeUiLanguage } from "../i18n";
 import { hasStoredByokKey } from "../utils/byokDetection";
 import { ensureAgentNameInDictionary } from "../utils/agentName";
 import logger from "../utils/logger";
-import type { LocalTranscriptionProvider } from "../types/electron";
+import type { LocalTranscriptionProvider, InferenceMode, SelfHostedType } from "../types/electron";
 import type { GoogleCalendarAccount } from "../types/calendar";
 import type {
   TranscriptionSettings,
@@ -84,6 +84,55 @@ function migratePreferredLanguage() {
 
 migratePreferredLanguage();
 
+function migrateProviderSettings() {
+  if (!isBrowser) return;
+  if (localStorage.getItem("_providerSettingsMigrated") === "1") return;
+
+  const cloudMode = localStorage.getItem("cloudTranscriptionMode");
+  const useLocal = localStorage.getItem("useLocalWhisper") === "true";
+  const provider = localStorage.getItem("cloudTranscriptionProvider");
+
+  let transcriptionMode: InferenceMode = "openwhispr";
+  if (useLocal) {
+    transcriptionMode = "local";
+  } else if (cloudMode === "byok") {
+    transcriptionMode = provider === "custom" ? "self-hosted" : "providers";
+  }
+  localStorage.setItem("transcriptionMode", transcriptionMode);
+
+  if (provider === "custom" && cloudMode === "byok") {
+    localStorage.setItem("remoteTranscriptionType", "openai-compatible");
+  }
+
+  const reasoningMode = localStorage.getItem("cloudReasoningMode");
+  const reasoningProvider = localStorage.getItem("reasoningProvider");
+  let newReasoningMode: InferenceMode = "openwhispr";
+  if (reasoningMode === "byok") {
+    if (reasoningProvider === "custom") {
+      newReasoningMode = "self-hosted";
+    } else if (
+      reasoningProvider === "qwen" ||
+      reasoningProvider === "llama" ||
+      reasoningProvider === "mistral" ||
+      reasoningProvider === "openai-oss" ||
+      reasoningProvider === "gemma"
+    ) {
+      newReasoningMode = "local";
+    } else {
+      newReasoningMode = "providers";
+    }
+  }
+  localStorage.setItem("reasoningMode", newReasoningMode);
+
+  if (reasoningProvider === "custom" && reasoningMode === "byok") {
+    localStorage.setItem("remoteReasoningType", "openai-compatible");
+  }
+
+  localStorage.setItem("_providerSettingsMigrated", "1");
+}
+
+migrateProviderSettings();
+
 export interface SettingsState
   extends
     TranscriptionSettings,
@@ -108,6 +157,20 @@ export interface SettingsState
   keepTranscriptionInClipboard: boolean;
   noteFilesEnabled: boolean;
   noteFilesPath: string;
+
+  transcriptionMode: InferenceMode;
+  remoteTranscriptionType: SelfHostedType;
+  remoteTranscriptionUrl: string;
+  reasoningMode: InferenceMode;
+  remoteReasoningType: SelfHostedType;
+  remoteReasoningUrl: string;
+
+  setTranscriptionMode: (mode: InferenceMode) => void;
+  setRemoteTranscriptionType: (type: SelfHostedType) => void;
+  setRemoteTranscriptionUrl: (url: string) => void;
+  setReasoningMode: (mode: InferenceMode) => void;
+  setRemoteReasoningType: (type: SelfHostedType) => void;
+  setRemoteReasoningUrl: (url: string) => void;
 
   setUseLocalWhisper: (value: boolean) => void;
   setWhisperModel: (value: string) => void;
@@ -316,6 +379,38 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   noteFilesEnabled: readBoolean("noteFilesEnabled", false),
   noteFilesPath: readString("noteFilesPath", ""),
   isSignedIn: readBoolean("isSignedIn", false),
+
+  transcriptionMode: (() => {
+    const v = readString("transcriptionMode", "openwhispr");
+    if (v === "openwhispr" || v === "providers" || v === "local" || v === "self-hosted") return v;
+    return "openwhispr" as InferenceMode;
+  })(),
+  remoteTranscriptionType: (() => {
+    const v = readString("remoteTranscriptionType", "openai-compatible");
+    return v === "lan" ? "lan" : ("openai-compatible" as SelfHostedType);
+  })(),
+  remoteTranscriptionUrl: readString("remoteTranscriptionUrl", ""),
+  reasoningMode: (() => {
+    const v = readString("reasoningMode", "openwhispr");
+    if (v === "openwhispr" || v === "providers" || v === "local" || v === "self-hosted") return v;
+    return "openwhispr" as InferenceMode;
+  })(),
+  remoteReasoningType: (() => {
+    const v = readString("remoteReasoningType", "openai-compatible");
+    return v === "lan" ? "lan" : ("openai-compatible" as SelfHostedType);
+  })(),
+  remoteReasoningUrl: readString("remoteReasoningUrl", ""),
+
+  setTranscriptionMode: createStringSetter("transcriptionMode") as (mode: InferenceMode) => void,
+  setRemoteTranscriptionType: createStringSetter("remoteTranscriptionType") as (
+    type: SelfHostedType
+  ) => void,
+  setRemoteTranscriptionUrl: createStringSetter("remoteTranscriptionUrl"),
+  setReasoningMode: createStringSetter("reasoningMode") as (mode: InferenceMode) => void,
+  setRemoteReasoningType: createStringSetter("remoteReasoningType") as (
+    type: SelfHostedType
+  ) => void,
+  setRemoteReasoningUrl: createStringSetter("remoteReasoningUrl"),
 
   agentModel: readString("agentModel", "openai/gpt-oss-120b"),
   agentProvider: readString("agentProvider", "groq"),

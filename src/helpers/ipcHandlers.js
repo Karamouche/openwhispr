@@ -1201,6 +1201,48 @@ class IPCHandlers {
       return this.whisperManager.getServerStatus();
     });
 
+    ipcMain.handle("transcribe-lan-whisper", async (event, audioBlob, options = {}) => {
+      debugLogger.log("transcribe-lan-whisper called", {
+        audioBlobSize: audioBlob?.byteLength || audioBlob?.length || 0,
+        url: options.url,
+      });
+
+      if (!options.url) {
+        return {
+          success: false,
+          error: "lan_url_missing",
+          message: "LAN server URL not configured",
+        };
+      }
+
+      try {
+        const result = await this.whisperManager.transcribeViaLan(audioBlob, options.url, options);
+
+        debugLogger.log("LAN Whisper result", {
+          success: result.success,
+          hasText: !!result.text,
+        });
+
+        if (!result.success && result.message === "No audio detected") {
+          event.sender.send("no-audio-detected");
+        }
+
+        return result;
+      } catch (error) {
+        debugLogger.error("LAN Whisper transcription error", { error: error.message });
+
+        if (error.message.includes("unreachable")) {
+          return {
+            success: false,
+            error: "lan_unreachable",
+            message: "LAN whisper-server is unreachable. Check the URL and network connection.",
+          };
+        }
+
+        return { success: false, error: "lan_error", message: error.message };
+      }
+    });
+
     ipcMain.handle("detect-gpu", async () => {
       const { detectNvidiaGpu } = require("../utils/gpuDetection");
       return detectNvidiaGpu();
@@ -1599,9 +1641,13 @@ class IPCHandlers {
           if (!info?.hotkey) continue;
 
           if (!usesNativeListener(info.hotkey)) {
-            debugLogger.log(`[IPC] Unregistering globalShortcut "${info.hotkey}" (slot "${slot}") for capture mode`);
+            debugLogger.log(
+              `[IPC] Unregistering globalShortcut "${info.hotkey}" (slot "${slot}") for capture mode`
+            );
             const { globalShortcut } = require("electron");
-            try { globalShortcut.unregister(info.hotkey); } catch {}
+            try {
+              globalShortcut.unregister(info.hotkey);
+            } catch {}
           }
         }
 
@@ -1614,7 +1660,9 @@ class IPCHandlers {
         // On GNOME, unregister all native keybindings during capture
         if (hotkeyManager.isUsingGnome() && hotkeyManager.gnomeManager) {
           for (const slot of [...hotkeyManager.gnomeManager.registeredSlots]) {
-            debugLogger.log(`[IPC] Unregistering GNOME keybinding (slot "${slot}") for capture mode`);
+            debugLogger.log(
+              `[IPC] Unregistering GNOME keybinding (slot "${slot}") for capture mode`
+            );
             await hotkeyManager.gnomeManager.unregisterKeybinding(slot).catch((err) => {
               debugLogger.warn(`[IPC] Failed to unregister GNOME slot "${slot}":`, err.message);
             });
@@ -1641,7 +1689,10 @@ class IPCHandlers {
       } else {
         // Exiting capture mode - re-register globalShortcut if not already registered
         // Skip for KDE/GNOME/Hyprland — updateHotkey handles re-registration via native path
-        const usesNativePath = hotkeyManager.isUsingKDE() || hotkeyManager.isUsingGnome() || hotkeyManager.isUsingHyprland();
+        const usesNativePath =
+          hotkeyManager.isUsingKDE() ||
+          hotkeyManager.isUsingGnome() ||
+          hotkeyManager.isUsingHyprland();
         if (effectiveHotkey && !usesNativeListener(effectiveHotkey) && !usesNativePath) {
           const { globalShortcut } = require("electron");
           const accelerator = effectiveHotkey.startsWith("Fn+")
@@ -1709,18 +1760,28 @@ class IPCHandlers {
             `[IPC] Re-registering KDE keybinding "${effectiveHotkey}" after capture mode`
           );
           const callback = this.windowManager.createHotkeyCallback();
-          const result = await hotkeyManager.kdeManager.registerKeybinding(effectiveHotkey, "dictation", callback);
+          const result = await hotkeyManager.kdeManager.registerKeybinding(
+            effectiveHotkey,
+            "dictation",
+            callback
+          );
           if (result === true) {
             hotkeyManager.currentHotkey = effectiveHotkey;
           } else {
-            debugLogger.warn(`[IPC] Failed to re-register KDE keybinding "${effectiveHotkey}" after capture mode`, { result });
+            debugLogger.warn(
+              `[IPC] Failed to re-register KDE keybinding "${effectiveHotkey}" after capture mode`,
+              { result }
+            );
           }
         }
 
         // Re-register non-dictation slots (meeting, agent) that were unregistered on capture enter
         for (const [slot, info] of hotkeyManager.slots) {
-          if (slot === "dictation" || slot === "cancel" || !info?.hotkey || !info?.callback) continue;
-          debugLogger.log(`[IPC] Re-registering slot "${slot}" ("${info.hotkey}") after capture mode`);
+          if (slot === "dictation" || slot === "cancel" || !info?.hotkey || !info?.callback)
+            continue;
+          debugLogger.log(
+            `[IPC] Re-registering slot "${slot}" ("${info.hotkey}") after capture mode`
+          );
           await hotkeyManager.registerSlot(slot, info.hotkey, info.callback).catch((err) => {
             debugLogger.warn(`[IPC] Failed to re-register slot "${slot}":`, err.message);
           });
@@ -2687,7 +2748,28 @@ class IPCHandlers {
       try {
         let result;
 
-        if (settings?.useLocalWhisper) {
+        if (
+          settings?.transcriptionMode === "self-hosted" &&
+          settings?.remoteTranscriptionType === "lan" &&
+          settings?.remoteTranscriptionUrl
+        ) {
+          try {
+            const lanResult = await this.whisperManager.transcribeViaLan(
+              buffer,
+              settings.remoteTranscriptionUrl,
+              { language: settings.language || null }
+            );
+            if (lanResult?.success && lanResult.text) {
+              result = { text: lanResult.text, source: "lan", model: "remote" };
+            }
+          } catch (lanError) {
+            debugLogger.warn("LAN whisper-server failed, falling back", {
+              error: lanError.message,
+            });
+          }
+        }
+
+        if (!result && settings?.useLocalWhisper) {
           if (settings.localTranscriptionProvider === "nvidia") {
             const model =
               settings.parakeetModel || process.env.PARAKEET_MODEL || "parakeet-tdt-0.6b-v3";
@@ -2697,7 +2779,7 @@ class IPCHandlers {
               model: settings.whisperModel,
             });
           }
-        } else if (settings?.cloudTranscriptionMode === "openwhispr") {
+        } else if (!result && settings?.cloudTranscriptionMode === "openwhispr") {
           const win = BrowserWindow.fromWebContents(event.sender);
           if (win) {
             const cookieHeader = await getSessionCookiesFromWindow(win);
@@ -2719,7 +2801,7 @@ class IPCHandlers {
               }
             }
           }
-        } else {
+        } else if (!result) {
           const provider = settings?.cloudTranscriptionProvider || "openai";
           const model = this._resolveByokModel(provider, settings?.cloudTranscriptionModel);
 

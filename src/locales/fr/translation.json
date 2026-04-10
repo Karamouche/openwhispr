@@ -1091,6 +1091,12 @@
       "description": "Corrige les transcriptions, gère les commandes et corrige les erreurs tout en préservant votre ton.",
       "enableTextCleanup": "Activer la correction de texte",
       "enableTextCleanupDescription": "L'IA améliore la qualité de transcription",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "Fournisseurs",
+        "local": "Sur l'appareil",
+        "selfHosted": "Auto-hébergé"
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "Fonctionne directement. Aucune configuration requise.",
       "title": "Amélioration du texte par IA",
@@ -1102,6 +1108,18 @@
         "switchedCustom": {
           "description": "Configurez votre propre fournisseur et clé API.",
           "title": "Basculé vers la configuration personnalisée"
+        },
+        "switchedProviders": {
+          "title": "Fournisseurs cloud",
+          "description": "Utilisation de vos propres clés API."
+        },
+        "switchedLocal": {
+          "title": "Sur l'appareil",
+          "description": "L'IA s'exécute localement sur votre machine."
+        },
+        "switchedSelfHosted": {
+          "title": "Auto-hébergé",
+          "description": "Utilisation de votre propre serveur."
         }
       }
     },
@@ -1382,6 +1400,12 @@
       "customSetup": "Configuration personnalisée",
       "customSetupDescription": "Utilisez votre propre fournisseur et clé API.",
       "description": "Choisissez comment OpenWhispr transcrit votre voix",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "Fournisseurs",
+        "local": "Sur l'appareil",
+        "selfHosted": "Auto-hébergé"
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "Fonctionne directement. Aucune configuration requise.",
       "title": "Reconnaissance vocale",
@@ -1393,6 +1417,18 @@
         "switchedCustom": {
           "description": "Configurez votre propre fournisseur et clé API.",
           "title": "Basculé vers la configuration personnalisée"
+        },
+        "switchedProviders": {
+          "title": "Fournisseurs cloud",
+          "description": "Utilisation de vos propres clés API."
+        },
+        "switchedLocal": {
+          "title": "Sur l'appareil",
+          "description": "La transcription s'exécute localement sur votre machine."
+        },
+        "switchedSelfHosted": {
+          "title": "Auto-hébergé",
+          "description": "Utilisation de votre propre serveur."
         }
       },
       "gpuDevice": {
@@ -1405,6 +1441,12 @@
         "title": "Intelligence GPU",
         "description": "GPU utilisé pour le traitement IA local"
       }
+    },
+    "selfHosted": {
+      "endpointUrl": "URL du point d'accès",
+      "serverUrl": "URL du serveur",
+      "apiKeyOptional": "Clé API (facultative)",
+      "lanHint": "L'audio reste sur votre réseau — rien ne quitte votre LAN."
     }
   },
   "models": {

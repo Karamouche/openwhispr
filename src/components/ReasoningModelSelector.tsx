@@ -49,6 +49,7 @@ interface ReasoningModelSelectorProps {
   setGroqApiKey: (key: string) => void;
   customReasoningApiKey?: string;
   setCustomReasoningApiKey?: (key: string) => void;
+  mode?: "cloud" | "local";
 }
 
 function GpuStatusBadge() {
@@ -319,9 +320,10 @@ export default function ReasoningModelSelector({
   setGroqApiKey,
   customReasoningApiKey = "",
   setCustomReasoningApiKey,
+  mode,
 }: ReasoningModelSelectorProps) {
   const { t } = useTranslation();
-  const [selectedMode, setSelectedMode] = useState<"cloud" | "local">("cloud");
+  const [selectedMode, setSelectedMode] = useState<"cloud" | "local">(mode || "cloud");
   const [selectedCloudProvider, setSelectedCloudProvider] = useState("openai");
   const [selectedLocalProvider, setSelectedLocalProvider] = useState("qwen");
   const [customModelOptions, setCustomModelOptions] = useState<CloudModelOption[]>([]);
@@ -492,7 +494,12 @@ export default function ReasoningModelSelector({
     return customModelOptions;
   }, [isCustomBaseDirty, customModelOptions]);
 
-  const cloudProviderIds = ["openai", "anthropic", "gemini", "groq", "custom"];
+  const effectiveMode = mode || selectedMode;
+
+  const cloudProviderIds =
+    mode === "cloud"
+      ? ["openai", "anthropic", "gemini", "groq"]
+      : ["openai", "anthropic", "gemini", "groq", "custom"];
   const cloudProviders = cloudProviderIds.map((id) => ({
     id,
     name:
@@ -729,22 +736,24 @@ export default function ReasoningModelSelector({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <ProviderTabs
-          providers={MODE_TABS}
-          selectedId={selectedMode}
-          onSelect={(id) => handleModeChange(id as "cloud" | "local")}
-          renderIcon={renderModeIcon}
-          colorScheme="purple"
-        />
-        <p className="text-xs text-muted-foreground text-center">
-          {selectedMode === "local"
-            ? t("reasoning.mode.localDescription")
-            : t("reasoning.mode.cloudDescription")}
-        </p>
-      </div>
+      {!mode && (
+        <div className="space-y-2">
+          <ProviderTabs
+            providers={MODE_TABS}
+            selectedId={effectiveMode}
+            onSelect={(id) => handleModeChange(id as "cloud" | "local")}
+            renderIcon={renderModeIcon}
+            colorScheme="purple"
+          />
+          <p className="text-xs text-muted-foreground text-center">
+            {effectiveMode === "local"
+              ? t("reasoning.mode.localDescription")
+              : t("reasoning.mode.cloudDescription")}
+          </p>
+        </div>
+      )}
 
-      {selectedMode === "cloud" ? (
+      {effectiveMode === "cloud" ? (
         <div className="space-y-2">
           <div className="border border-border rounded-lg overflow-hidden">
             <ProviderTabs

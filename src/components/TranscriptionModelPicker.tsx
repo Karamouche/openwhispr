@@ -203,6 +203,7 @@ interface TranscriptionModelPickerProps {
   setCloudTranscriptionBaseUrl?: (url: string) => void;
   className?: string;
   variant?: "onboarding" | "settings";
+  mode?: "cloud" | "local";
 }
 
 const CLOUD_PROVIDER_TABS = [
@@ -278,8 +279,10 @@ export default function TranscriptionModelPicker({
   setCloudTranscriptionBaseUrl,
   className = "",
   variant = "settings",
+  mode,
 }: TranscriptionModelPickerProps) {
   const { t } = useTranslation();
+  const effectiveLocal = mode === "local" ? true : mode === "cloud" ? false : useLocalWhisper;
   const [localModels, setLocalModels] = useState<LocalModel[]>([]);
   const [parakeetModels, setParakeetModels] = useState<LocalModel[]>([]);
   const [internalLocalProvider, setInternalLocalProvider] = useState(selectedLocalProvider);
@@ -311,7 +314,9 @@ export default function TranscriptionModelPicker({
   const colorScheme: ColorScheme = variant === "settings" ? "purple" : "blue";
   const styles = useMemo(() => MODEL_PICKER_COLORS[colorScheme], [colorScheme]);
   const cloudProviders = useMemo(() => getTranscriptionProviders(), []);
-  const cloudProviderTabs = CLOUD_PROVIDER_TABS.map((provider) =>
+  const cloudProviderTabs = CLOUD_PROVIDER_TABS.filter(
+    (p) => !(mode === "cloud" && p.id === "custom")
+  ).map((provider) =>
     provider.id === "custom" ? { ...provider, name: t("transcription.customProvider") } : provider
   );
 
@@ -419,7 +424,7 @@ export default function TranscriptionModelPicker({
   }, [ensureValidCloudSelection]);
 
   useEffect(() => {
-    if (!useLocalWhisper) return;
+    if (!effectiveLocal) return;
 
     if (internalLocalProvider === "whisper" && !hasLoadedRef.current) {
       hasLoadedRef.current = true;
@@ -428,15 +433,15 @@ export default function TranscriptionModelPicker({
       hasLoadedParakeetRef.current = true;
       loadParakeetModelsRef.current?.();
     }
-  }, [useLocalWhisper, internalLocalProvider]);
+  }, [effectiveLocal, internalLocalProvider]);
 
   useEffect(() => {
-    if (useLocalWhisper) return;
+    if (effectiveLocal) return;
 
     hasLoadedRef.current = false;
     hasLoadedParakeetRef.current = false;
     ensureValidCloudSelectionRef.current?.();
-  }, [useLocalWhisper]);
+  }, [effectiveLocal]);
 
   useEffect(() => {
     const handleModelsCleared = () => {
@@ -448,13 +453,13 @@ export default function TranscriptionModelPicker({
   }, [loadLocalModels, loadParakeetModels]);
 
   useEffect(() => {
-    if (!useLocalWhisper || internalLocalProvider !== "whisper") return;
+    if (!effectiveLocal || internalLocalProvider !== "whisper") return;
     if (getCachedPlatform() === "darwin") return;
     window.electronAPI
       ?.getCudaWhisperStatus?.()
       ?.then(setCudaStatus)
       .catch(() => {});
-  }, [useLocalWhisper, internalLocalProvider]);
+  }, [effectiveLocal, internalLocalProvider]);
 
   useEffect(() => {
     if (!cudaDownloading) return;
@@ -641,7 +646,7 @@ export default function TranscriptionModelPicker({
   }, [currentCloudProvider, selectedCloudProvider, t]);
 
   const progressDisplay = useMemo(() => {
-    if (!useLocalWhisper) return null;
+    if (!effectiveLocal) return null;
 
     if (downloadingModel && internalLocalProvider === "whisper") {
       const modelInfo = WHISPER_MODEL_INFO[downloadingModel];
@@ -673,7 +678,7 @@ export default function TranscriptionModelPicker({
     downloadingParakeetModel,
     parakeetDownloadProgress,
     isInstallingParakeet,
-    useLocalWhisper,
+    effectiveLocal,
     internalLocalProvider,
   ]);
 
@@ -814,9 +819,9 @@ export default function TranscriptionModelPicker({
 
   return (
     <div className={`space-y-2 ${className}`}>
-      <ModeToggle useLocalWhisper={useLocalWhisper} onModeChange={handleModeChange} />
+      {!mode && <ModeToggle useLocalWhisper={effectiveLocal} onModeChange={handleModeChange} />}
 
-      {!useLocalWhisper ? (
+      {!effectiveLocal ? (
         <div className={styles.container}>
           <div className="p-2 pb-0">
             <ProviderTabs

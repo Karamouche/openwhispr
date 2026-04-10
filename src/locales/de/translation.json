@@ -1091,6 +1091,12 @@
       "description": "Bereinigt Transkriptionen, verarbeitet Befehle und korrigiert Fehler unter Beibehaltung Ihres Stils.",
       "enableTextCleanup": "Textbereinigung aktivieren",
       "enableTextCleanupDescription": "KI verbessert die Transkriptionsqualität",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "Anbieter",
+        "local": "Lokal",
+        "selfHosted": "Selbst gehostet"
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "Funktioniert sofort. Keine Konfiguration nötig.",
       "title": "KI-Textverbesserung",
@@ -1102,6 +1108,18 @@
         "switchedCustom": {
           "description": "Konfigurieren Sie Ihren eigenen Anbieter und API-Schlüssel.",
           "title": "Zu benutzerdefinierter Einrichtung gewechselt"
+        },
+        "switchedProviders": {
+          "title": "Cloud-Anbieter",
+          "description": "Verwendung Ihrer eigenen API-Schlüssel."
+        },
+        "switchedLocal": {
+          "title": "Lokal",
+          "description": "KI wird lokal auf Ihrem Gerät ausgeführt."
+        },
+        "switchedSelfHosted": {
+          "title": "Selbst gehostet",
+          "description": "Verwendung Ihres eigenen Servers."
         }
       }
     },
@@ -1382,6 +1400,12 @@
       "customSetup": "Benutzerdefinierte Einrichtung",
       "customSetupDescription": "Verwenden Sie Ihren eigenen Anbieter und API-Schlüssel.",
       "description": "Wählen Sie, wie OpenWhispr Ihre Stimme transkribiert",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "Anbieter",
+        "local": "Lokal",
+        "selfHosted": "Selbst gehostet"
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "Funktioniert sofort. Keine Konfiguration nötig.",
       "title": "Sprache-zu-Text",
@@ -1393,6 +1417,18 @@
         "switchedCustom": {
           "description": "Konfigurieren Sie Ihren eigenen Anbieter und API-Schlüssel.",
           "title": "Zu benutzerdefinierter Einrichtung gewechselt"
+        },
+        "switchedProviders": {
+          "title": "Cloud-Anbieter",
+          "description": "Verwendung Ihrer eigenen API-Schlüssel."
+        },
+        "switchedLocal": {
+          "title": "Lokal",
+          "description": "Transkription wird lokal auf Ihrem Gerät ausgeführt."
+        },
+        "switchedSelfHosted": {
+          "title": "Selbst gehostet",
+          "description": "Verwendung Ihres eigenen Servers."
         }
       },
       "gpuDevice": {
@@ -1405,6 +1441,12 @@
         "title": "Intelligence GPU",
         "description": "GPU für lokale KI-Verarbeitung"
       }
+    },
+    "selfHosted": {
+      "endpointUrl": "Endpunkt-URL",
+      "serverUrl": "Server-URL",
+      "apiKeyOptional": "API-Schlüssel (optional)",
+      "lanHint": "Audio bleibt in Ihrem Netzwerk — nichts verlässt Ihr LAN."
     }
   },
   "models": {

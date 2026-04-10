@@ -317,12 +317,16 @@ class ReasoningService extends BaseReasoningService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
       try {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (apiKey) {
+          headers["Authorization"] = `Bearer ${apiKey}`;
+        }
+
         const res = await fetch(endpoint, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
+          headers,
           body: JSON.stringify(requestBody),
           signal: controller.signal,
         });
@@ -433,35 +437,46 @@ class ReasoningService extends BaseReasoningService {
       let result: string;
       const startTime = Date.now();
 
+      const settings = getSettings();
+      const isLanReasoning =
+        settings.reasoningMode === "self-hosted" &&
+        settings.remoteReasoningType === "lan" &&
+        settings.remoteReasoningUrl;
+
       logger.logReasoning("ROUTING_TO_PROVIDER", {
         provider,
         model,
+        isLanReasoning: !!isLanReasoning,
       });
 
-      switch (provider) {
-        case "openai":
-          result = await this.processWithOpenAI(text, trimmedModel, agentName, config);
-          break;
-        case "anthropic":
-          result = await this.processWithAnthropic(text, trimmedModel, agentName, config);
-          break;
-        case "local":
-          result = await this.processWithLocal(text, trimmedModel, agentName, config);
-          break;
-        case "gemini":
-          result = await this.processWithGemini(text, trimmedModel, agentName, config);
-          break;
-        case "groq":
-          result = await this.processWithGroq(text, model, agentName, config);
-          break;
-        case "openwhispr":
-          result = await this.processWithOpenWhispr(text, model, agentName, config);
-          break;
-        case "custom":
-          result = await this.processWithOpenAI(text, trimmedModel, agentName, config);
-          break;
-        default:
-          throw new Error(`Unsupported reasoning provider: ${provider}`);
+      if (isLanReasoning) {
+        result = await this.processWithLan(text, agentName, config);
+      } else {
+        switch (provider) {
+          case "openai":
+            result = await this.processWithOpenAI(text, trimmedModel, agentName, config);
+            break;
+          case "anthropic":
+            result = await this.processWithAnthropic(text, trimmedModel, agentName, config);
+            break;
+          case "local":
+            result = await this.processWithLocal(text, trimmedModel, agentName, config);
+            break;
+          case "gemini":
+            result = await this.processWithGemini(text, trimmedModel, agentName, config);
+            break;
+          case "groq":
+            result = await this.processWithGroq(text, model, agentName, config);
+            break;
+          case "openwhispr":
+            result = await this.processWithOpenWhispr(text, model, agentName, config);
+            break;
+          case "custom":
+            result = await this.processWithOpenAI(text, trimmedModel, agentName, config);
+            break;
+          default:
+            throw new Error(`Unsupported reasoning provider: ${provider}`);
+        }
       }
 
       const processingTime = Date.now() - startTime;
@@ -1066,6 +1081,47 @@ class ReasoningService extends BaseReasoningService {
     }
   }
 
+  private async processWithLan(
+    text: string,
+    agentName: string | null = null,
+    config: ReasoningConfig = {}
+  ): Promise<string> {
+    const settings = getSettings();
+    const lanUrl = settings.remoteReasoningUrl.trim();
+
+    logger.logReasoning("LAN_START", { url: lanUrl, agentName });
+
+    if (this.isProcessing) {
+      throw new Error("Already processing a request");
+    }
+
+    this.isProcessing = true;
+
+    try {
+      const baseUrl = normalizeBaseUrl(lanUrl) || lanUrl;
+      const endpoint = buildApiUrl(baseUrl, "/v1/chat/completions");
+
+      return await this.callChatCompletionsApi(
+        endpoint,
+        "",
+        "default",
+        text,
+        agentName,
+        config,
+        "LAN"
+      );
+    } catch (error) {
+      logger.logReasoning("LAN_ERROR", {
+        url: lanUrl,
+        error: (error as Error).message,
+        errorType: (error as Error).name,
+      });
+      throw error;
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
   private async processWithOpenWhispr(
     text: string,
     model: string,
@@ -1144,11 +1200,20 @@ class ReasoningService extends BaseReasoningService {
     const cloudProviders = ["openai", "groq", "gemini", "anthropic", "custom"];
     const isLocalProvider = !cloudProviders.includes(provider);
 
+    const settings = getSettings();
+    const isLanReasoning =
+      settings.reasoningMode === "self-hosted" &&
+      settings.remoteReasoningType === "lan" &&
+      settings.remoteReasoningUrl;
+
     let endpoint: string;
     let apiKey = "";
 
-    if (isLocalProvider) {
-      // Local model via llama.cpp server
+    if (isLanReasoning) {
+      const baseUrl =
+        normalizeBaseUrl(settings.remoteReasoningUrl.trim()) || settings.remoteReasoningUrl.trim();
+      endpoint = buildApiUrl(baseUrl, "/v1/chat/completions");
+    } else if (isLocalProvider) {
       const serverResult = await window.electronAPI.llamaServerStart(model);
       if (!serverResult.success || !serverResult.port) {
         throw new Error(serverResult.error || "Failed to start local model server");
@@ -1176,7 +1241,7 @@ class ReasoningService extends BaseReasoningService {
     }
 
     const apiConfig = getOpenAiApiConfig(model);
-    const useOldTokenParam = isLocalProvider || provider === "groq";
+    const useOldTokenParam = isLocalProvider || isLanReasoning || provider === "groq";
 
     const requestBody: Record<string, unknown> = {
       model,
@@ -1201,6 +1266,7 @@ class ReasoningService extends BaseReasoningService {
       model,
       provider,
       isLocal: isLocalProvider,
+      isLan: !!isLanReasoning,
       messageCount: messages.length,
     });
 
@@ -1277,7 +1343,7 @@ class ReasoningService extends BaseReasoningService {
             if (!content) continue;
 
             // Strip Qwen3 <think> blocks from streamed output
-            if (isLocalProvider) {
+            if (isLocalProvider || isLanReasoning) {
               if (insideThinkBlock) {
                 const endIdx = content.indexOf("</think>");
                 if (endIdx !== -1) {
@@ -1325,7 +1391,13 @@ class ReasoningService extends BaseReasoningService {
     const cloudProviders = ["openai", "groq", "gemini", "anthropic", "custom"];
     const isLocalProvider = !cloudProviders.includes(provider);
 
-    if (isLocalProvider && !tools) {
+    const settings = getSettings();
+    const isLanReasoning =
+      settings.reasoningMode === "self-hosted" &&
+      settings.remoteReasoningType === "lan" &&
+      settings.remoteReasoningUrl;
+
+    if ((isLocalProvider || isLanReasoning) && !tools) {
       const contentGen = this.processTextStreaming(messages, model, provider, config);
       for await (const text of contentGen) {
         yield { type: "content", text };
@@ -1337,7 +1409,13 @@ class ReasoningService extends BaseReasoningService {
     let apiKey = "";
     let baseURL: string | undefined;
 
-    if (isLocalProvider) {
+    if (isLanReasoning) {
+      const lanUrl = settings.remoteReasoningUrl.trim();
+      baseURL = normalizeBaseUrl(lanUrl) || lanUrl;
+      if (!baseURL.endsWith("/v1")) {
+        baseURL = buildApiUrl(baseURL, "/v1");
+      }
+    } else if (isLocalProvider) {
       const serverResult = await window.electronAPI.llamaServerStart(model);
       if (!serverResult.success || !serverResult.port) {
         throw new Error(serverResult.error || "Failed to start local model server");
@@ -1350,7 +1428,7 @@ class ReasoningService extends BaseReasoningService {
     }
     const apiConfig = getOpenAiApiConfig(model);
 
-    const aiProvider = isLocalProvider ? "local" : provider;
+    const aiProvider = isLocalProvider || isLanReasoning ? "local" : provider;
     const aiModel = getAIModel(aiProvider, model, apiKey, baseURL);
 
     const modelDef = getCloudModel(model);
@@ -1364,7 +1442,7 @@ class ReasoningService extends BaseReasoningService {
       messageCount: messages.length,
     });
 
-    const useTemperature = isLocalProvider || apiConfig.supportsTemperature;
+    const useTemperature = isLocalProvider || isLanReasoning || apiConfig.supportsTemperature;
 
     const result = streamText({
       model: aiModel,
@@ -1585,6 +1663,15 @@ class ReasoningService extends BaseReasoningService {
       }
 
       const settings = getSettings();
+      if (
+        settings.reasoningMode === "self-hosted" &&
+        settings.remoteReasoningType === "lan" &&
+        settings.remoteReasoningUrl?.trim()
+      ) {
+        logger.logReasoning("API_KEY_CHECK", { lanReasoning: true });
+        return true;
+      }
+
       if (settings.reasoningProvider === "custom" && settings.cloudReasoningBaseUrl?.trim()) {
         logger.logReasoning("API_KEY_CHECK", {
           customProvider: true,
