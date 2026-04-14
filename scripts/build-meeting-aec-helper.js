@@ -144,6 +144,7 @@ function buildDirect(manifest) {
   const includeArgs = manifest.includeDirs.flatMap((dir) => ["-I", dir]);
   const defineArgs = manifest.defines.map((define) => `-D${define}`);
   const commonArgs = [...manifest.compileOptions, ...includeArgs, ...defineArgs];
+  const avx2Set = new Set(manifest.avx2Sources);
   const objectFiles = [];
   const localSources = [
     path.join(sourceDir, "main.cc"),
@@ -156,9 +157,11 @@ function buildDirect(manifest) {
     const outputObject = path.join(objectDir, getSourceObjectName(source));
     const compiler = source.endsWith(".c") ? toolchain.cc : toolchain.cxx;
     const languageArgs = source.endsWith(".c") ? ["-std=c11"] : ["-std=c++20"];
+    const perSourceArgs = avx2Set.has(source) ? manifest.avx2CompileOptions : [];
     const result = run(compiler, [
       ...languageArgs,
       ...commonArgs,
+      ...perSourceArgs,
       "-c",
       source,
       "-o",

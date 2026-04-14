@@ -165,6 +165,7 @@ TARGET_ARCH = ${JSON.stringify(normalizeArch(targetArch))}
 want_arm64 = TARGET_ARCH == "arm64"
 want_arm32 = TARGET_ARCH.startswith("arm") and not want_arm64
 want_neon = want_arm64 or want_arm32
+want_x86_64 = TARGET_ARCH == "x64"
 
 targets = {}
 loaded_packages = set()
@@ -177,6 +178,8 @@ def select(options):
         if (key == "//:aarch32_build" or key == ":aarch32_build") and want_arm32:
             return value
         if (key == "//:neon_build" or key == ":neon_build") and want_neon:
+            return value
+        if key == "@platforms//cpu:x86_64" and want_x86_64:
             return value
     return options.get("//conditions:default", [])
 
@@ -262,6 +265,7 @@ def get_target(label):
 
 visited = set()
 collected = set()
+avx2 = set()
 
 def walk(label, package_path=""):
     normalized = normalize_label(label, package_path)
@@ -282,9 +286,11 @@ def walk(label, package_path=""):
         relative_path = str(Path(target_package_path) / source).replace("\\\\", "/")
         if relative_path in SKIPPED:
             continue
+        resolved = str((ROOT / relative_path).resolve())
         if "avx2" in Path(relative_path).name:
-            continue
-        collected.add(str((ROOT / relative_path).resolve()))
+            avx2.add(resolved)
+        else:
+            collected.add(resolved)
     for dependency in target.get("deps", []):
         if isinstance(dependency, str):
             walk(dependency, target_package_path)
@@ -292,7 +298,7 @@ def walk(label, package_path=""):
 for root_label in ROOT_LABELS:
     walk(root_label)
 
-print(json.dumps(sorted(collected)))
+print(json.dumps({"regular": sorted(collected), "avx2": sorted(avx2)}))
 `;
 
   const output = execFileSync("python3", ["-c", pythonScript], {
@@ -317,7 +323,7 @@ function getPlatformDefines(targetPlatform, targetArch) {
     if (targetPlatform === "darwin") {
       defines.push("WEBRTC_MAC=1");
     } else if (targetPlatform === "linux") {
-      defines.push("WEBRTC_LINUX=1");
+      defines.push("WEBRTC_LINUX=1", "_GNU_SOURCE");
     }
   }
 
@@ -348,7 +354,15 @@ function getLinkOptions(targetPlatform) {
     return ["-pthread", "-lm"];
   }
 
+  if (targetPlatform === "darwin") {
+    return ["-framework", "CoreFoundation"];
+  }
+
   return [];
+}
+
+function getAvx2CompileOptions(targetPlatform) {
+  return targetPlatform === "win32" ? ["/arch:AVX2"] : ["-mavx2", "-mfma"];
 }
 
 function quoteCmake(value) {
@@ -369,37 +383,46 @@ function writeCmakeManifest(manifest, outputPath) {
 
   writeList("MEETING_AEC_WEBRTC_SOURCES", manifest.webrtcSources);
   writeList("MEETING_AEC_ABSL_SOURCES", manifest.abslSources);
+  writeList("MEETING_AEC_AVX2_SOURCES", manifest.avx2Sources);
   writeList("MEETING_AEC_INCLUDE_DIRS", manifest.includeDirs);
   writeList("MEETING_AEC_DEFINES", manifest.defines);
   writeList("MEETING_AEC_COMPILE_OPTIONS", manifest.compileOptions);
+  writeList("MEETING_AEC_AVX2_COMPILE_OPTIONS", manifest.avx2CompileOptions);
   writeList("MEETING_AEC_LINK_OPTIONS", manifest.linkOptions);
 
   fs.writeFileSync(outputPath, `${lines.join("\n")}\n`);
 }
 
 function buildManifest({ helperRoot, webrtcApmRoot, abslRoot, targetPlatform, targetArch }) {
+  const { regular, avx2 } = buildWebrtcSourceList(webrtcApmRoot, targetArch);
   const webrtcSources = [
     ...new Set([
-      ...buildWebrtcSourceList(webrtcApmRoot, targetArch),
+      ...regular,
       ...EXTRA_WEBRTC_SOURCES.map((source) => path.join(webrtcApmRoot, source)),
     ]),
   ];
+  const avx2Sources = [...avx2];
   const abslSources = ABSL_SOURCES.map((source) => path.join(abslRoot, source));
   const defines = getPlatformDefines(targetPlatform, targetArch);
-  const compileOptions = ["-O2", ...getArchOptions(targetPlatform, targetArch)];
+  const baseCompileOptions = targetPlatform === "win32" ? [] : ["-O2"];
+  const compileOptions = [...baseCompileOptions, ...getArchOptions(targetPlatform, targetArch)];
+  const avx2CompileOptions = avx2Sources.length ? getAvx2CompileOptions(targetPlatform) : [];
   const linkOptions = getLinkOptions(targetPlatform);
+  const allRegularSources = [...webrtcSources, ...abslSources];
 
   return {
     helperRoot,
     webrtcSources,
     abslSources,
-    includeDirs: [helperRoot, webrtcApmRoot, abslRoot],
+    avx2Sources,
+    includeDirs: [helperRoot, path.join(helperRoot, "compat"), webrtcApmRoot, abslRoot],
     defines,
     compileOptions,
+    avx2CompileOptions,
     linkOptions,
-    cSources: [...webrtcSources, ...abslSources].filter((source) => source.endsWith(".c")),
-    cxxSources: [...webrtcSources, ...abslSources].filter((source) => source.endsWith(".cc")),
-    allSources: [...webrtcSources, ...abslSources],
+    cSources: allRegularSources.filter((source) => source.endsWith(".c")),
+    cxxSources: [...allRegularSources, ...avx2Sources].filter((source) => source.endsWith(".cc")),
+    allSources: [...allRegularSources, ...avx2Sources],
   };
 }
 
