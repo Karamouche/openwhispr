@@ -174,8 +174,11 @@ class OpenAIRealtimeStreaming {
         }
 
         case "conversation.item.input_audio_transcription.delta": {
-          this.currentPartial += event.delta || "";
-          this.onPartialTranscript?.(this.currentPartial);
+          const delta = event.delta || "";
+          if (delta) {
+            this.currentPartial += delta;
+            this.onPartialTranscript?.(this.currentPartial);
+          }
           break;
         }
 
@@ -185,15 +188,17 @@ class OpenAIRealtimeStreaming {
             this.completedSegments.push(transcript);
           }
           this.currentPartial = "";
-          const fullText = this.getFullTranscript();
           const speechTimestamp = this.speechStartedAt || Date.now();
           this.speechStartedAt = null;
-          this.onFinalTranscript?.(fullText, speechTimestamp);
-          debugLogger.debug("OpenAI Realtime turn completed", {
-            turnText: transcript.slice(0, 100),
-            totalLength: fullText.length,
-            segments: this.completedSegments.length,
-          });
+          if (transcript) {
+            const fullText = this.getFullTranscript();
+            this.onFinalTranscript?.(fullText, speechTimestamp);
+            debugLogger.debug("OpenAI Realtime turn completed", {
+              turnText: transcript.slice(0, 100),
+              totalLength: fullText.length,
+              segments: this.completedSegments.length,
+            });
+          }
           break;
         }
 

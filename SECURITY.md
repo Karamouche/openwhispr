@@ -39,8 +39,11 @@ Out of scope:
 - **Local-first audio processing** — Audio is transcribed on-device using
   whisper.cpp or nvidia parakeet. Recordings are not sent to external servers unless explicitly
   configured by the user.
-- **Credential storage** — Sensitive credentials are stored using Electron's
-  `safeStorage` API where available.
+- **Credential storage** — API keys provided by users (BYOK) are stored in
+  plaintext in the app's `userData` directory (`.env` file and Electron
+  `localStorage`). They are readable by any process running as the current OS
+  user. Migrating to Electron's `safeStorage` API for platform-native
+  encryption is tracked in [#532](https://github.com/OpenWhispr/openwhispr/issues/532).
 - **Native binaries** — Platform-specific helpers (key listeners, paste
   utilities) are compiled from source during the build process.
 - **Context isolation** — The Electron renderer runs with context isolation

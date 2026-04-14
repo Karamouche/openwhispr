@@ -58,6 +58,7 @@ const RESTORE_DELAYS = {
   win32_nircmd: 80,
   win32_pwsh: 80,
   linux: 200,
+  linux_kde_wayland: 600,
 };
 
 function writeClipboardInRenderer(webContents, text) {
@@ -135,8 +136,7 @@ class ClipboardManager {
 
     if (this.commandExists("wl-copy")) {
       try {
-        const isHyprland = !!process.env.HYPRLAND_INSTANCE_SIGNATURE;
-        const result = spawnSync("wl-copy", ["--", text], { timeout: isHyprland ? 50 : 1 });
+        const result = spawnSync("wl-copy", ["--", text], { timeout: 50 });
         if (result.status === 0) {
           clipboard.writeText(text);
           return;
@@ -518,6 +518,29 @@ class ClipboardManager {
     }
   }
 
+  _saveClipboard() {
+    const formats = clipboard.availableFormats();
+    if (formats.some((f) => f.startsWith("image/"))) {
+      return { type: "image", data: clipboard.readImage() };
+    } else if (formats.includes("text/html")) {
+      return { type: "html", text: clipboard.readText(), html: clipboard.readHTML() };
+    } else {
+      return { type: "text", data: clipboard.readText() };
+    }
+  }
+
+  _restoreClipboard(original) {
+    if (!original) return;
+    if (original.type === "image") {
+      if (!original.data.isEmpty()) clipboard.writeImage(original.data);
+    } else if (original.type === "html") {
+      clipboard.write({ text: original.text, html: original.html });
+    } else {
+      clipboard.writeText(original.data);
+    }
+    this.safeLog("🔄 Clipboard restored");
+  }
+
   safeLog(...args) {
     if (process.env.NODE_ENV === "development") {
       try {
@@ -564,12 +587,9 @@ class ClipboardManager {
 
     try {
       const shouldRestore = options.restoreClipboard !== false;
-      const originalClipboard = shouldRestore ? clipboard.readText() : null;
+      const originalClipboard = shouldRestore ? this._saveClipboard() : null;
       if (shouldRestore) {
-        this.safeLog(
-          "💾 Saved original clipboard content:",
-          originalClipboard.substring(0, 50) + "..."
-        );
+        this.safeLog("💾 Saved original clipboard:", originalClipboard.type);
       }
 
       if (platform === "linux" && this._isWayland()) {
@@ -660,7 +680,7 @@ class ClipboardManager {
             this.safeLog(`Text pasted successfully via ${useFastPaste ? "CGEvent" : "osascript"}`);
             if (originalClipboard != null) {
               setTimeout(() => {
-                clipboard.writeText(originalClipboard);
+                this._restoreClipboard(originalClipboard);
               }, RESTORE_DELAYS.darwin);
             }
             resolve();
@@ -726,7 +746,7 @@ class ClipboardManager {
           this.safeLog("Text pasted successfully via osascript fallback");
           if (originalClipboard != null) {
             setTimeout(() => {
-              clipboard.writeText(originalClipboard);
+              this._restoreClipboard(originalClipboard);
             }, RESTORE_DELAYS.darwin);
           }
           resolve();
@@ -806,8 +826,7 @@ class ClipboardManager {
             });
             if (originalClipboard != null) {
               setTimeout(() => {
-                clipboard.writeText(originalClipboard);
-                this.safeLog("🔄 Clipboard restored");
+                this._restoreClipboard(originalClipboard);
               }, RESTORE_DELAYS.win32_nircmd);
             }
             resolve();
@@ -881,8 +900,7 @@ class ClipboardManager {
             });
             if (originalClipboard != null) {
               setTimeout(() => {
-                clipboard.writeText(originalClipboard);
-                this.safeLog("🔄 Clipboard restored");
+                this._restoreClipboard(originalClipboard);
               }, restoreDelay);
             }
             resolve();
@@ -959,8 +977,7 @@ class ClipboardManager {
             });
             if (originalClipboard != null) {
               setTimeout(() => {
-                clipboard.writeText(originalClipboard);
-                this.safeLog("🔄 Clipboard restored");
+                this._restoreClipboard(originalClipboard);
               }, restoreDelay);
             }
             resolve();
@@ -1043,13 +1060,14 @@ class ClipboardManager {
 
     const restoreClipboard = () => {
       if (originalClipboard == null) return;
+      const delay = isKde && isWayland ? RESTORE_DELAYS.linux_kde_wayland : RESTORE_DELAYS.linux;
       setTimeout(() => {
-        if (isWayland) {
-          this._writeClipboardWayland(originalClipboard, webContents);
+        if (isWayland && originalClipboard.type === "text") {
+          this._writeClipboardWayland(originalClipboard.data, webContents);
         } else {
-          clipboard.writeText(originalClipboard);
+          this._restoreClipboard(originalClipboard);
         }
-      }, RESTORE_DELAYS.linux);
+      }, delay);
     };
 
     const terminalClasses = [
@@ -1167,11 +1185,6 @@ class ClipboardManager {
         });
 
       if (isWayland) {
-        // On KDE with XWayland (ozone-platform-hint: x11), portal paste works
-        // because clipboard and input are both on X11. uinput causes a clipboard
-        // desync (X11 clipboard vs Wayland input) so portal is preferred.
-        // On GNOME, Mutter doesn't reliably route uinput to native Wayland
-        // windows (issue #292), so portal is tried first there too.
         const tryUinputPaste = async () => {
           const args = ["--uinput"];
           if (earlyIsTerminal) args.push("--terminal");
@@ -1185,7 +1198,7 @@ class ClipboardManager {
           restoreClipboard();
         };
 
-        if ((isGnome || isKde) && linuxFastPaste && !this.portalDenied) {
+        const tryPortalPaste = async () => {
           const MAX_PORTAL_RETRIES = 3;
           for (let attempt = 0; attempt < MAX_PORTAL_RETRIES; attempt++) {
             try {
@@ -1197,7 +1210,7 @@ class ClipboardManager {
                 "clipboard"
               );
               restoreClipboard();
-              return "portal";
+              return true;
             } catch (portalError) {
               if (portalError?.message === "portal-dismissed") {
                 debugLogger.warn(
@@ -1216,21 +1229,49 @@ class ClipboardManager {
                 );
               } else {
                 debugLogger.warn(
-                  "linux-fast-paste --portal failed, falling back to uinput",
+                  "linux-fast-paste --portal failed, falling back",
                   { error: portalError?.message },
                   "clipboard"
                 );
               }
-              break;
+              return false;
             }
           }
-        }
+          return false;
+        };
 
-        try {
-          await tryUinputPaste();
-          return "uinput";
-        } catch (uinputError) {
-          debugLogger.warn("uinput paste failed", { error: uinputError?.message }, "clipboard");
+        // KDE with XWayland: portal first because clipboard and input are both
+        // on X11. uinput causes clipboard desync (X11 clipboard vs Wayland input).
+        // GNOME: uinput first because the portal often times out or shows a
+        // confusing permission dialog, causing a 10s+ delay (issue #494).
+        if (isKde && linuxFastPaste && !this.portalDenied) {
+          if (await tryPortalPaste()) return "portal";
+          try {
+            await tryUinputPaste();
+            return "uinput";
+          } catch (uinputError) {
+            debugLogger.warn("uinput paste failed", { error: uinputError?.message }, "clipboard");
+          }
+        } else if (isGnome && linuxFastPaste) {
+          try {
+            await tryUinputPaste();
+            return "uinput";
+          } catch (uinputError) {
+            debugLogger.warn(
+              "uinput paste failed on GNOME, trying portal",
+              { error: uinputError?.message },
+              "clipboard"
+            );
+          }
+          if (!this.portalDenied && (await tryPortalPaste())) return "portal";
+        } else {
+          // Other compositors (wlroots, etc.): try uinput only
+          try {
+            await tryUinputPaste();
+            return "uinput";
+          } catch (uinputError) {
+            debugLogger.warn("uinput paste failed", { error: uinputError?.message }, "clipboard");
+          }
         }
 
         // XTest/XWayland fallback: works for XWayland apps on any Wayland compositor

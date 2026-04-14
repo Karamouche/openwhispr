@@ -213,7 +213,7 @@ export const usePermissions = (
         alert(message);
       }
     }
-  }, [showAlertDialog, t]);
+  }, [showAlertDialog, t, setMicPermissionGranted]);
 
   const checkPasteToolsAvailability = useCallback(async (): Promise<PasteToolsResult | null> => {
     setIsCheckingPasteTools(true);
@@ -250,18 +250,8 @@ export const usePermissions = (
         return;
       }
 
-      // Trigger the macOS TCC prompt (creates entry in System Settings)
-      try {
-        const granted = await window.electronAPI?.promptAccessibilityPermission?.();
-        if (granted) {
-          setAccessibilityPermissionGranted(true);
-          return;
-        }
-      } catch {
-        // Falls through to opening System Settings
-      }
-
-      // Open System Settings for manual toggle
+      // Open System Settings directly — avoids the undismissable macOS TCC dialog
+      // that isTrustedAccessibilityClient(true) would show.
       await openSystemSettings("accessibility", window.electronAPI?.openAccessibilitySettings);
       return;
     }

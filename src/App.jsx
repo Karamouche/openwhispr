@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import "./index.css";
 import { X } from "lucide-react";
-import { useToast } from "./components/ui/Toast";
+import { useToast } from "./components/ui/useToast";
 import { LoadingDots } from "./components/ui/LoadingDots";
 import { useHotkey } from "./hooks/useHotkey";
 import { formatHotkeyLabel } from "./utils/hotkeys";
@@ -108,7 +108,10 @@ export default function App() {
     const unsubscribeFallback = window.electronAPI?.onHotkeyFallbackUsed?.((data) => {
       toast({
         title: t("app.toasts.hotkeyChanged.title"),
-        description: data.message,
+        description: t("app.toasts.hotkeyChanged.description", {
+          original: data.original,
+          fallback: data.fallback,
+        }),
         duration: 8000,
       });
     });
@@ -118,14 +121,6 @@ export default function App() {
         title: t("app.toasts.hotkeyUnavailable.title"),
         description: t("app.toasts.hotkeyUnavailable.description"),
         duration: 10000,
-      });
-    });
-
-    const unsubscribeAccessibility = window.electronAPI?.onAccessibilityMissing?.(() => {
-      toast({
-        title: t("app.toasts.accessibilityMissing.title"),
-        description: t("app.toasts.accessibilityMissing.description"),
-        duration: 12000,
       });
     });
 
@@ -165,7 +160,6 @@ export default function App() {
     return () => {
       unsubscribeFallback?.();
       unsubscribeFailed?.();
-      unsubscribeAccessibility?.();
       unsubscribeCorrections?.();
     };
   }, [toast, dismiss, t]);
@@ -211,6 +205,19 @@ export default function App() {
     });
     return () => unsubscribe?.();
   }, []);
+
+  const isRecordingRef = useRef(isRecording);
+
+  useLayoutEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
+
+  useEffect(() => {
+    const unsubscribe = window.electronAPI?.onCancelHotkeyPressed?.(() => {
+      if (isRecordingRef.current) cancelRecording();
+    });
+    return () => unsubscribe?.();
+  }, [cancelRecording]);
 
   // Auto-hide the floating icon when idle (setting enabled or dictation cycle completed)
   useEffect(() => {

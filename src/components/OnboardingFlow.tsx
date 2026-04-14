@@ -155,6 +155,18 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     checkHotkeyMode();
   }, [setActivationMode]);
 
+  // Update wizard UI when backend falls back to a different hotkey.
+  // Only update local state — don't persist to localStorage so the app
+  // retries the preferred key on next launch.
+  useEffect(() => {
+    const unsubscribe = window.electronAPI?.onHotkeyFallbackUsed?.((data: { fallback: string }) => {
+      if (data?.fallback) {
+        setHotkey(data.fallback);
+      }
+    });
+    return () => unsubscribe?.();
+  }, []);
+
   useEffect(() => {
     const modelToCheck = localTranscriptionProvider === "nvidia" ? parakeetModel : whisperModel;
     if (!useLocalWhisper || !modelToCheck) {
@@ -199,8 +211,18 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       hotkeyStepInitializedRef.current = true;
 
       try {
-        // Get platform-appropriate default hotkey
-        const defaultHotkey = getDefaultHotkey();
+        // Check if backend already registered a hotkey (e.g., KDE D-Bus fallback)
+        const backendKey = localStorage.getItem("dictationKey");
+        if (backendKey && backendKey.trim() !== "") {
+          setHotkey(backendKey);
+          setDictationKey(backendKey);
+          return;
+        }
+
+        // Get platform-appropriate default hotkey from backend (accounts for
+        // X11 modifier-only and GNOME gsettings limitations)
+        const defaultHotkey =
+          (await window.electronAPI?.getEffectiveDefaultHotkey?.()) || getDefaultHotkey();
         const platform = window.electronAPI?.getPlatform?.() ?? "darwin";
 
         // Only auto-register if no hotkey is currently set
@@ -222,7 +244,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     };
 
     void autoRegisterDefaultHotkey();
-  }, [currentStep, hotkey, registerHotkey, activationStepIndex]);
+  }, [currentStep, hotkey, registerHotkey, activationStepIndex, setDictationKey]);
 
   const ensureHotkeyRegistered = useCallback(async () => {
     if (!window.electronAPI?.updateHotkey) {
@@ -282,6 +304,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     ensureHotkeyRegistered,
     isSignedIn,
     useLocalWhisper,
+    skipAuth,
     updateTranscriptionSettings,
   ]);
 
@@ -351,8 +374,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           return (
             <div className="space-y-6">
               <div className="text-center">
-                <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Check className="w-7 h-7 text-emerald-600" />
+                <div className="w-14 h-14 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Check className="w-7 h-7 text-green-500" />
                 </div>
                 <h2 className="text-2xl font-semibold text-foreground mb-2">
                   {t("onboarding.setup.title")}

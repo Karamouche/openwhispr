@@ -6,7 +6,7 @@ import UpgradePrompt from "./UpgradePrompt";
 import { ConfirmDialog, AlertDialog } from "./ui/dialog";
 import { useDialogs } from "../hooks/useDialogs";
 import { useHotkey } from "../hooks/useHotkey";
-import { useToast } from "./ui/Toast";
+import { useToast } from "./ui/useToast";
 import { useUpdater } from "../hooks/useUpdater";
 import { useSettings } from "../hooks/useSettings";
 import { useAuth } from "../hooks/useAuth";
@@ -18,6 +18,7 @@ import {
   updateTranscription as updateInStore,
   clearTranscriptions as clearStore,
 } from "../stores/transcriptionStore";
+import { useSettingsStore } from "../stores/settingsStore";
 import ControlPanelSidebar, { type ControlPanelView } from "./ControlPanelSidebar";
 import WindowControls from "./WindowControls";
 
@@ -33,6 +34,7 @@ const PersonalNotesView = React.lazy(() => import("./notes/PersonalNotesView"));
 const DictionaryView = React.lazy(() => import("./DictionaryView"));
 const UploadAudioView = React.lazy(() => import("./notes/UploadAudioView"));
 const IntegrationsView = React.lazy(() => import("./IntegrationsView"));
+const ChatView = React.lazy(() => import("./chat/ChatView"));
 const CommandSearch = React.lazy(() => import("./CommandSearch"));
 
 export default function ControlPanel() {
@@ -100,7 +102,7 @@ export default function ControlPanel() {
 
   useEffect(() => {
     loadTranscriptions();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -108,6 +110,9 @@ export default function ControlPanel() {
       if (mod && e.key === "k") {
         e.preventDefault();
         setShowSearch(true);
+      } else if (mod && e.key === ",") {
+        e.preventDefault();
+        setShowSettings(true);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -222,6 +227,22 @@ export default function ControlPanel() {
       setIsMeetingMode(true);
       setMeetingRecordingRequest(data);
       initializeNotes(null, 50, data.folderId);
+    });
+    return () => cleanup?.();
+  }, []);
+
+  useEffect(() => {
+    const cleanup = window.electronAPI?.onNavigateToNote?.((data) => {
+      if (data.folderId) setActiveFolderId(data.folderId);
+      setActiveNoteId(data.noteId);
+      setActiveView("personal-notes");
+    });
+    return () => cleanup?.();
+  }, []);
+
+  useEffect(() => {
+    const cleanup = window.electronAPI?.onShowSettings?.(() => {
+      setShowSettings(true);
     });
     return () => cleanup?.();
   }, []);
@@ -368,7 +389,20 @@ export default function ControlPanel() {
   const retryTranscription = useCallback(
     async (id: number) => {
       try {
-        const result = await window.electronAPI.retryTranscription(id);
+        const s = useSettingsStore.getState();
+        const result = await window.electronAPI.retryTranscription(id, {
+          useLocalWhisper: s.useLocalWhisper,
+          localTranscriptionProvider: s.localTranscriptionProvider,
+          cloudTranscriptionMode: s.cloudTranscriptionMode,
+          cloudTranscriptionProvider: s.cloudTranscriptionProvider,
+          cloudTranscriptionModel: s.cloudTranscriptionModel,
+          cloudTranscriptionBaseUrl: s.cloudTranscriptionBaseUrl,
+          parakeetModel: s.parakeetModel,
+          whisperModel: s.whisperModel,
+          transcriptionMode: s.transcriptionMode,
+          remoteTranscriptionType: s.remoteTranscriptionType,
+          remoteTranscriptionUrl: s.remoteTranscriptionUrl,
+        });
         if (result.success && result.transcription) {
           const rawText = result.transcription.text;
           let finalTranscription = result.transcription;
@@ -540,7 +574,8 @@ export default function ControlPanel() {
             open={showSearch}
             onOpenChange={setShowSearch}
             transcriptions={history}
-            onNoteSelect={(id) => {
+            onNoteSelect={(id, folderId) => {
+              if (folderId) setActiveFolderId(folderId);
               setActiveNoteId(id);
               setActiveView("personal-notes");
             }}
@@ -724,6 +759,11 @@ export default function ControlPanel() {
                 }}
               />
             )}
+            {activeView === "chat" && (
+              <Suspense fallback={null}>
+                <ChatView />
+              </Suspense>
+            )}
             {activeView === "personal-notes" && (
               <Suspense fallback={null}>
                 <PersonalNotesView
@@ -731,6 +771,7 @@ export default function ControlPanel() {
                     setSettingsSection(section);
                     setShowSettings(true);
                   }}
+                  onOpenSearch={() => setShowSearch(true)}
                   meetingRecordingRequest={meetingRecordingRequest}
                   onMeetingRecordingRequestHandled={handleMeetingRecordingRequestHandled}
                   isMeetingMode={isMeetingMode}

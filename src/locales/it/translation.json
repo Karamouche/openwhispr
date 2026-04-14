@@ -7,6 +7,14 @@
       "uiDescription": "Scegli la lingua usata nell'interfaccia di OpenWhispr",
       "transcriptionLabel": "Lingua di trascrizione",
       "transcriptionDescription": "Scegli la lingua che parli per una trascrizione più accurata"
+    },
+    "noteFiles": {
+      "title": "Salva note come file",
+      "description": "Salva automaticamente le note come file .md su disco, organizzate per cartella",
+      "path": "Percorso di salvataggio",
+      "changePath": "Cambia percorso",
+      "rebuild": "Ricostruisci tutti i file",
+      "rebuildDescription": "Risincronizza tutte le note su disco"
     }
   },
   "tray": {
@@ -22,6 +30,7 @@
     "appLabel": "OpenWhispr",
     "quit": "Esci da OpenWhispr",
     "speech": "Voce",
+    "settings": "Impostazioni...",
     "help": "Aiuto",
     "learnMore": "Scopri di più",
     "file": "File",
@@ -242,6 +251,9 @@
       "failedCtaSettings": "Configura il tuo provider di trascrizione",
       "failedCtaAndRetry": "poi clicca su riprova",
       "failedCtaSettingsOnly": "Configura il tuo provider di trascrizione nelle Impostazioni",
+      "failedCtaSignIn": "Accedi di nuovo",
+      "failedLimitReached": "Limite giornaliero raggiunto",
+      "failedOffline": "Offline",
       "clearAll": "Cancella tutto",
       "clearAllTitle": "Cancella tutte le trascrizioni",
       "clearAllDescription": "Tutte le trascrizioni e i file audio verranno rimossi definitivamente.",
@@ -955,15 +967,15 @@
           "period": "per sempre",
           "features": [
             "## OpenWhispr Cloud",
-            "2,000 words/week transcription",
-            "5 hours of meeting recordings/month",
-            "## Always free",
-            "Unlimited local AI models",
-            "Unlimited cloud transcription with your own API keys",
-            "100+ languages supported",
-            "Custom dictionary",
-            "Zero data retention",
-            "Community support"
+            "2.000 parole/settimana di trascrizione",
+            "5 ore di registrazioni riunioni/mese",
+            "## Sempre gratuito",
+            "Modelli IA locali illimitati",
+            "Trascrizione cloud illimitata con le tue chiavi API",
+            "Oltre 100 lingue supportate",
+            "Dizionario personalizzato",
+            "Nessuna conservazione dei dati",
+            "Supporto della comunità"
           ]
         },
         "pro": {
@@ -975,10 +987,10 @@
           "annualEquivalent": "$6.67",
           "includesPrefix": "Tutte le funzionalità Free +",
           "features": [
-            "Unlimited cloud transcription",
-            "20 hours of meeting recordings/month",
-            "Mobile app (iOS Coming Soon)",
-            "Email support"
+            "Trascrizione cloud illimitata",
+            "20 ore di registrazioni riunioni/mese",
+            "App mobile (iOS in arrivo)",
+            "Supporto via e-mail"
           ],
           "cta": "Inizia",
           "switchToAnnual": "Passa all'annuale"
@@ -993,10 +1005,10 @@
           "includesPrefix": "Tutte le funzionalità Pro +",
           "badge": "Più popolare",
           "features": [
-            "Unlimited meeting recordings",
-            "Agent mode",
-            "Chat over your data (Coming Soon)",
-            "Priority support"
+            "Registrazioni riunioni illimitate",
+            "Modalità agente",
+            "Chatta con i tuoi dati (in arrivo)",
+            "Supporto prioritario"
           ],
           "cta": "Inizia",
           "switchToAnnual": "Passa all'annuale"
@@ -1004,16 +1016,16 @@
         "enterprise": {
           "name": "Enterprise",
           "price": "Personalizzato",
-          "subtitle": "For advanced security & support",
+          "subtitle": "Per sicurezza avanzata e supporto dedicato",
           "includesPrefix": "Tutte le funzionalità Business +",
           "features": [
-            "Managed API credits",
-            "Cloud sync across devices",
-            "Team features & admin",
-            "SSO & compliance",
-            "Dedicated support"
+            "Crediti API gestiti",
+            "Sincronizzazione cloud tra dispositivi",
+            "Funzionalità di team e amministrazione",
+            "SSO e conformità",
+            "Supporto dedicato"
           ],
-          "cta": "Contact Sales"
+          "cta": "Contatta le vendite"
         },
         "currentPlan": "Piano attuale",
         "upgrade": "Upgrade",
@@ -1082,6 +1094,16 @@
       "description": "Correggi le trascrizioni, gestisci i comandi e risolvi gli errori preservando il tuo tono.",
       "enableTextCleanup": "Attiva correzione testo",
       "enableTextCleanupDescription": "L'IA migliora la qualità della trascrizione",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "Provider cloud",
+        "local": "Locale",
+        "selfHosted": "Self-hosted",
+        "openwhisprDesc": "Funziona subito. Zero setup.",
+        "providersDesc": "Usa la tua chiave API.",
+        "localDesc": "Modelli sul dispositivo. Totalmente privato.",
+        "selfHostedDesc": "Il tuo server nella tua rete."
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "Funziona subito. Nessuna configurazione necessaria.",
       "title": "Miglioramento testo con IA",
@@ -1093,6 +1115,18 @@
         "switchedCustom": {
           "description": "Configura il tuo provider e la tua chiave API.",
           "title": "Passato a configurazione personalizzata"
+        },
+        "switchedProviders": {
+          "title": "Provider cloud",
+          "description": "Utilizzo delle tue chiavi API."
+        },
+        "switchedLocal": {
+          "title": "Sul dispositivo",
+          "description": "L'IA viene eseguita localmente sulla tua macchina."
+        },
+        "switchedSelfHosted": {
+          "title": "Self-hosted",
+          "description": "Utilizzo del tuo server."
         }
       }
     },
@@ -1373,6 +1407,16 @@
       "customSetup": "Configurazione personalizzata",
       "customSetupDescription": "Usa il tuo provider e la tua chiave API.",
       "description": "Scegli come OpenWhispr trascrive la tua voce",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "Provider cloud",
+        "local": "Locale",
+        "selfHosted": "Self-hosted",
+        "openwhisprDesc": "Funziona subito. Zero setup.",
+        "providersDesc": "Usa la tua chiave API.",
+        "localDesc": "Modelli sul dispositivo. Totalmente privato.",
+        "selfHostedDesc": "Il tuo server nella tua rete."
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "Funziona subito. Nessuna configurazione necessaria.",
       "title": "Riconoscimento vocale",
@@ -1384,8 +1428,38 @@
         "switchedCustom": {
           "description": "Configura il tuo provider e la tua chiave API.",
           "title": "Passato a configurazione personalizzata"
+        },
+        "switchedProviders": {
+          "title": "Provider cloud",
+          "description": "Utilizzo delle tue chiavi API."
+        },
+        "switchedLocal": {
+          "title": "Sul dispositivo",
+          "description": "La trascrizione viene eseguita localmente sulla tua macchina."
+        },
+        "switchedSelfHosted": {
+          "title": "Self-hosted",
+          "description": "Utilizzo del tuo server."
         }
+      },
+      "gpuDevice": {
+        "title": "GPU trascrizione",
+        "description": "GPU usata per la trascrizione locale"
+      },
+      "transcriptionPreview": "Anteprima dal vivo",
+      "transcriptionPreviewDescription": "Mostra la trascrizione in una finestra flottante prima della correzione"
+    },
+    "intelligence": {
+      "gpuDevice": {
+        "title": "Intelligence GPU",
+        "description": "GPU usata per l'elaborazione IA locale"
       }
+    },
+    "selfHosted": {
+      "endpointUrl": "URL endpoint",
+      "serverUrl": "URL server",
+      "apiKeyOptional": "API Key (opzionale)",
+      "lanHint": "L'audio resta sulla tua rete — niente esce dalla tua LAN."
     }
   },
   "models": {
@@ -1454,6 +1528,10 @@
         "llama_llama_3_1_8b_instruct_q4_k_m": "Modello potente con ottime prestazioni",
         "openai_oss_gpt_oss_20b_mxfp4": "Modello open-weight di OpenAI per hardware consumer",
         "gemma_gemma_3_4b_it_q4_k_m": "Modello open-weight di Google, ottimo equilibrio tra velocità e qualità",
+        "gemma_gemma_4_31b_it_q4_k_m": "Il più grande Gemma 4 di Google, migliore qualità",
+        "gemma_gemma_4_26b_a4b_it_q4_k_m": "Gemma 4 MoE di Google, veloce con 4B parametri attivi",
+        "gemma_gemma_4_e4b_it_q4_k_m": "Ultimo multimodale di Google, ragionamento avanzato",
+        "gemma_gemma_4_e2b_it_q4_k_m": "Gemma 4 compatto di Google, veloce ed efficiente",
         "gemma_gemma_3_12b_it_q4_k_m": "Modello di fascia media di Google, ragionamento solido",
         "gemma_gemma_3_1b_it_q4_k_m": "Modello Google ultraveloce, ideale per la pulizia di brevi dettature"
       }
@@ -1532,6 +1610,11 @@
     }
   },
   "notes": {
+    "sidebar": {
+      "newNote": "Nuova nota",
+      "searchNotes": "Cerca note",
+      "actions": "Azioni"
+    },
     "folders": {
       "title": "Cartelle",
       "soon": "Presto",
@@ -1562,13 +1645,23 @@
       "raw": "Originale",
       "enhanced": "Migliorato",
       "saving": "Salvataggio",
-      "wordsCount": "{{count}} parole",
       "startWriting": "Inizia a scrivere...",
       "staleIndicator": "Il contenuto è cambiato dall'ultimo miglioramento",
       "live": "Dal vivo",
       "transcript": "Trascrizione",
       "notes": "Note",
-      "conversationWillAppear": "La conversazione apparirà qui..."
+      "conversationWillAppear": "La conversazione apparirà qui...",
+      "linkedEvent": "Evento collegato",
+      "noFolder": "Nessuna cartella",
+      "participants": "Partecipanti"
+    },
+    "participants": {
+      "attendee": "partecipante",
+      "attendees": "partecipanti",
+      "addAttendees": "Aggiungi partecipanti",
+      "addPlaceholder": "Aggiungi partecipanti...",
+      "typeEmail": "Digita un'email per aggiungere...",
+      "me": "(io)"
     },
     "upload": {
       "title": "Carica audio",
@@ -1626,7 +1719,8 @@
       "rename": "Rinomina",
       "searchFolders": "Cerca cartelle...",
       "noResults": "Nessuna cartella trovata",
-      "newFolder": "Nuova cartella"
+      "newFolder": "Nuova cartella",
+      "showInFileManager": "Mostra in {{manager}}"
     },
     "actions": {
       "manage": "Gestisci azioni...",
@@ -1641,6 +1735,9 @@
       "update": "Aggiorna",
       "cancel": "Annulla",
       "noActions": "Nessuna azione personalizzata ancora",
+      "promptLabel": "Istruzione",
+      "emptyEditorTitle": "Seleziona un'azione",
+      "emptyEditorDescription": "Scegli un'azione dall'elenco o creane una nuova",
       "runAction": "Esegui {{name}}",
       "selectAction": "Seleziona azione",
       "done": "Fatto",
@@ -1735,7 +1832,30 @@
     "learnMore": "Scopri di più",
     "integrations": "Integrazioni",
     "defaultUser": "Utente",
-    "notSignedIn": "Non hai effettuato l'accesso"
+    "notSignedIn": "Non hai effettuato l'accesso",
+    "chat": "Chat"
+  },
+  "chat": {
+    "newChat": "Nuova chat",
+    "search": "Cerca conversazioni...",
+    "archived": "Archiviate",
+    "noConversations": "Inizia la tua prima conversazione",
+    "selectChat": "Seleziona una conversazione o avviane una nuova",
+    "noResults": "Nessuna conversazione corrispondente",
+    "today": "Oggi",
+    "yesterday": "Ieri",
+    "previousWeek": "Ultimi 7 giorni",
+    "older": "Precedenti",
+    "archive": "Archivia",
+    "unarchive": "Ripristina",
+    "delete": "Elimina",
+    "deleteConfirm": "Questa conversazione verrà eliminata permanentemente. Non è possibile annullare.",
+    "editTitle": "Doppio clic per modificare il titolo",
+    "untitled": "Senza titolo",
+    "searchChats": "Cerca chat",
+    "searchTitle": "Cerca conversazioni",
+    "searchDescription": "Cerca in tutte le conversazioni",
+    "newChatEmpty": "Chiedi delle tue note, trascrizioni o qualsiasi altra cosa"
   },
   "usage": {
     "approachingLimit": "Limite settimanale quasi raggiunto",
@@ -1788,7 +1908,8 @@
   "app": {
     "toasts": {
       "hotkeyChanged": {
-        "title": "Scorciatoia modificata"
+        "title": "Scorciatoia modificata",
+        "description": "\"{{original}}\" non era disponibile. Verrà usato \"{{fallback}}\" al suo posto. Puoi modificarlo nelle Impostazioni."
       },
       "hotkeyUnavailable": {
         "title": "Scorciatoia non disponibile",
@@ -1834,6 +1955,16 @@
       "systemPrompt": "Prompt di Sistema",
       "systemPromptDescription": "Istruzioni personalizzate per l'agente",
       "systemPromptPlaceholder": "Inserisci un prompt di sistema personalizzato...",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "Provider Cloud",
+        "local": "Locale",
+        "selfHosted": "Self-Hosted",
+        "openwhisprDesc": "Funziona subito. Nessuna configurazione.",
+        "providersDesc": "Porta la tua chiave API.",
+        "localDesc": "Modelli sul dispositivo. Completamente privato.",
+        "selfHostedDesc": "Il tuo server sulla tua rete."
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "Usa l'IA cloud di OpenWhispr per le conversazioni agente",
       "customSetup": "Configurazione personalizzata (BYOK)",
@@ -1847,7 +1978,7 @@
       "newConversation": "Nuovo",
       "copyToClipboard": "Copia negli appunti",
       "copied": "Copiato!",
-      "emptyState": "Tieni premuto {{hotkey}} per iniziare una conversazione",
+      "emptyState": "Chiedimi qualsiasi cosa",
       "errorPrefix": "Errore"
     },
     "titleBar": {
@@ -1860,7 +1991,30 @@
       "toClose": "chiudi",
       "listening": "Ascolto...",
       "transcribing": "Trascrizione...",
-      "thinking": "Pensiero..."
+      "thinking": "Pensiero...",
+      "typeMessage": "Scrivi un messaggio...",
+      "send": "Invia"
+    },
+    "tools": {
+      "search_notesStatus": "Ricerca nelle note...",
+      "web_searchStatus": "Ricerca sul web...",
+      "copy_to_clipboardStatus": "Copia negli appunti...",
+      "get_calendar_eventsStatus": "Controllo del calendario...",
+      "get_noteStatus": "Lettura della nota...",
+      "create_noteStatus": "Creazione della nota...",
+      "update_noteStatus": "Aggiornamento della nota...",
+      "copiedToClipboard": "Copiato negli appunti",
+      "foundNotes": "{{count}} nota trovata",
+      "foundNotes_plural": "{{count}} note trovate",
+      "searchResults": "{{count}} risultato trovato",
+      "searchResults_plural": "{{count}} risultati trovati",
+      "openNote": "Apri nota",
+      "calendarEvents": "{{count}} evento trovato",
+      "calendarEvents_plural": "{{count}} eventi trovati",
+      "noResults": "Nessun risultato",
+      "error": "Errore dello strumento",
+      "unknownTool": "Strumento sconosciuto: {{name}}",
+      "invalidArgs": "Argomenti dello strumento non validi per {{name}}"
     }
   },
   "integrations": {
@@ -2001,5 +2155,25 @@
     "title": "Autorizzazioni necessarie",
     "description": "OpenWhispr ha bisogno di alcune autorizzazioni per funzionare su questo computer.",
     "continue": "Continua"
+  },
+  "embeddedChat": {
+    "askPlaceholder": "Chiedi qualcosa...",
+    "send": "Invia",
+    "title": "Chat",
+    "emptyState": "Fai una domanda su questa nota",
+    "dock": "Ancora nella barra laterale",
+    "undock": "Sgancia dalla barra laterale",
+    "close": "Chiudi chat",
+    "newChat": "Nuova chat",
+    "conversationSelector": "Cambia conversazione"
+  },
+  "transcriptionPreview": {
+    "label": "Anteprima",
+    "listening": "In ascolto...",
+    "polishing": "Rifinitura...",
+    "ready": "Pronto",
+    "copy": "Copia",
+    "copied": "Copiato",
+    "waitingForInput": "Di qualcosa..."
   }
 }

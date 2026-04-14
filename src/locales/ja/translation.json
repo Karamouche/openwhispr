@@ -7,6 +7,14 @@
       "uiDescription": "OpenWhispr のインターフェースで使用する言語を選択",
       "transcriptionLabel": "文字起こし言語",
       "transcriptionDescription": "より正確な文字起こしのために話す言語を選択"
+    },
+    "noteFiles": {
+      "title": "ノートをファイルとして保存",
+      "description": "ノートを .md ファイルとしてディスクに自動保存し、フォルダごとに整理",
+      "path": "保存先",
+      "changePath": "保存先を変更",
+      "rebuild": "すべてのファイルを再構築",
+      "rebuildDescription": "すべてのノートをディスクに再同期"
     }
   },
   "tray": {
@@ -22,6 +30,7 @@
     "appLabel": "OpenWhispr",
     "quit": "OpenWhispr を終了",
     "speech": "スピーチ",
+    "settings": "設定...",
     "help": "ヘルプ",
     "learnMore": "詳細を見る",
     "file": "ファイル",
@@ -242,6 +251,9 @@
       "failedCtaSettings": "文字起こしプロバイダーを設定してください",
       "failedCtaAndRetry": "その後、再試行をクリックしてください",
       "failedCtaSettingsOnly": "設定で文字起こしプロバイダーを設定してください",
+      "failedCtaSignIn": "もう一度サインインしてください",
+      "failedLimitReached": "1日の上限に達しました",
+      "failedOffline": "オフラインです",
       "clearAll": "すべて削除",
       "clearAllTitle": "すべての文字起こしを削除",
       "clearAllDescription": "すべての文字起こしと音声ファイルが完全に削除されます。",
@@ -935,15 +947,15 @@
           "period": "永久",
           "features": [
             "## OpenWhispr Cloud",
-            "2,000 words/week transcription",
-            "5 hours of meeting recordings/month",
-            "## Always free",
-            "Unlimited local AI models",
-            "Unlimited cloud transcription with your own API keys",
-            "100+ languages supported",
-            "Custom dictionary",
-            "Zero data retention",
-            "Community support"
+            "週2,000ワードの文字起こし",
+            "月5時間の会議録音",
+            "## 永久無料",
+            "無制限のローカルAIモデル",
+            "独自のAPIキーで無制限のクラウド文字起こし",
+            "100以上の言語に対応",
+            "カスタム辞書",
+            "データ保持なし",
+            "コミュニティサポート"
           ]
         },
         "pro": {
@@ -955,10 +967,10 @@
           "annualEquivalent": "$6.67",
           "includesPrefix": "Free の全機能 +",
           "features": [
-            "Unlimited cloud transcription",
-            "20 hours of meeting recordings/month",
-            "Mobile app (iOS Coming Soon)",
-            "Email support"
+            "無制限のクラウド文字起こし",
+            "月20時間の会議録音",
+            "モバイルアプリ（iOS 近日公開）",
+            "メールサポート"
           ],
           "cta": "始める",
           "switchToAnnual": "年払いに切り替え"
@@ -973,10 +985,10 @@
           "includesPrefix": "Pro の全機能 +",
           "badge": "一番人気",
           "features": [
-            "Unlimited meeting recordings",
-            "Agent mode",
-            "Chat over your data (Coming Soon)",
-            "Priority support"
+            "無制限の会議録音",
+            "エージェントモード",
+            "データとチャット（近日公開）",
+            "優先サポート"
           ],
           "cta": "始める",
           "switchToAnnual": "年払いに切り替え"
@@ -984,16 +996,16 @@
         "enterprise": {
           "name": "Enterprise",
           "price": "カスタム",
-          "subtitle": "For advanced security & support",
+          "subtitle": "高度なセキュリティとサポート向け",
           "includesPrefix": "Business の全機能 +",
           "features": [
-            "Managed API credits",
-            "Cloud sync across devices",
-            "Team features & admin",
-            "SSO & compliance",
-            "Dedicated support"
+            "管理されたAPIクレジット",
+            "デバイス間のクラウド同期",
+            "チーム機能と管理",
+            "SSO とコンプライアンス",
+            "専任サポート"
           ],
-          "cta": "Contact Sales"
+          "cta": "営業に問い合わせる"
         },
         "currentPlan": "現在のプラン",
         "upgrade": "アップグレード",
@@ -1082,6 +1094,16 @@
       "description": "文字起こしのクリーンアップ、コマンド処理、エラー修正を行いながら、あなたの話し方を維持します。",
       "enableTextCleanup": "テキスト補正を有効にする",
       "enableTextCleanupDescription": "AI が文字起こしの品質を向上",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "クラウドプロバイダー",
+        "local": "ローカル",
+        "selfHosted": "セルフホスト",
+        "openwhisprDesc": "設定不要ですぐ使える。",
+        "providersDesc": "自分のAPIキーを使用。",
+        "localDesc": "端末上のモデル。完全プライベート。",
+        "selfHostedDesc": "自前サーバーをネットワーク上に。"
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "設定不要ですぐに使えます。",
       "title": "AI テキスト補正",
@@ -1093,6 +1115,18 @@
         "switchedCustom": {
           "description": "独自のプロバイダーと API キーを設定してください。",
           "title": "カスタム設定に切り替えました"
+        },
+        "switchedProviders": {
+          "title": "クラウドプロバイダー",
+          "description": "独自の API キーを使用します。"
+        },
+        "switchedLocal": {
+          "title": "デバイス上",
+          "description": "AI はお使いのマシン上でローカルに実行されます。"
+        },
+        "switchedSelfHosted": {
+          "title": "セルフホスト",
+          "description": "独自のサーバーを使用します。"
         }
       }
     },
@@ -1373,6 +1407,16 @@
       "customSetup": "カスタム設定",
       "customSetupDescription": "独自のプロバイダーと API キーを使用。",
       "description": "OpenWhispr の音声文字起こし方法を選択",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "クラウドプロバイダー",
+        "local": "ローカル",
+        "selfHosted": "セルフホスト",
+        "openwhisprDesc": "設定不要ですぐ使える。",
+        "providersDesc": "自分のAPIキーを使用。",
+        "localDesc": "端末上のモデル。完全プライベート。",
+        "selfHostedDesc": "自前サーバーをネットワーク上に。"
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "設定不要ですぐに使えます。",
       "title": "音声テキスト変換",
@@ -1384,8 +1428,38 @@
         "switchedCustom": {
           "description": "独自のプロバイダーと API キーを設定してください。",
           "title": "カスタム設定に切り替えました"
+        },
+        "switchedProviders": {
+          "title": "クラウドプロバイダー",
+          "description": "独自の API キーを使用します。"
+        },
+        "switchedLocal": {
+          "title": "デバイス上",
+          "description": "文字起こしはお使いのマシン上でローカルに実行されます。"
+        },
+        "switchedSelfHosted": {
+          "title": "セルフホスト",
+          "description": "独自のサーバーを使用します。"
         }
+      },
+      "gpuDevice": {
+        "title": "文字起こしGPU",
+        "description": "ローカル音声認識に使用するGPU"
+      },
+      "transcriptionPreview": "リアルタイム文字起こしプレビュー",
+      "transcriptionPreviewDescription": "補正前にフローティングウィンドウで文字起こしを表示"
+    },
+    "intelligence": {
+      "gpuDevice": {
+        "title": "Intelligence GPU",
+        "description": "ローカルAI処理に使用するGPU"
       }
+    },
+    "selfHosted": {
+      "endpointUrl": "エンドポイント URL",
+      "serverUrl": "サーバー URL",
+      "apiKeyOptional": "API キー（任意）",
+      "lanHint": "音声はネットワーク内に留まります — LAN の外には出ません。"
     }
   },
   "models": {
@@ -1454,12 +1528,21 @@
         "llama_llama_3_1_8b_instruct_q4_k_m": "優れた性能を持つ強力なモデル",
         "openai_oss_gpt_oss_20b_mxfp4": "一般消費者向けハードウェア用 OpenAI オープンウェイトモデル",
         "gemma_gemma_3_4b_it_q4_k_m": "Google のオープンウェイトモデル、速度と品質の優れたバランス",
+        "gemma_gemma_4_31b_it_q4_k_m": "Google 最大の Gemma 4、最高品質",
+        "gemma_gemma_4_26b_a4b_it_q4_k_m": "Google の MoE Gemma 4、4B アクティブパラメータで高速",
+        "gemma_gemma_4_e4b_it_q4_k_m": "Google の最新マルチモーダルモデル、高度な推論",
+        "gemma_gemma_4_e2b_it_q4_k_m": "Google のコンパクトな Gemma 4、高速で効率的",
         "gemma_gemma_3_12b_it_q4_k_m": "Google の中型モデル、強力な推論",
         "gemma_gemma_3_1b_it_q4_k_m": "超高速 Google モデル、短い口述のクリーンアップに最適"
       }
     }
   },
   "notes": {
+    "sidebar": {
+      "newNote": "新しいノート",
+      "searchNotes": "ノートを検索",
+      "actions": "アクション"
+    },
     "editor": {
       "transcribe": "文字起こし",
       "staleIndicator": "強化後にコンテンツが変更されました",
@@ -1467,6 +1550,9 @@
       "transcript": "文字起こし",
       "notes": "ノート",
       "conversationWillAppear": "会話がここに表示されます...",
+      "linkedEvent": "リンクされたイベント",
+      "noFolder": "フォルダなし",
+      "participants": "参加者",
       "untitled": "無題",
       "noteTitle": "ノートのタイトル",
       "stop": "停止",
@@ -1477,8 +1563,15 @@
       "raw": "元のテキスト",
       "enhanced": "強化済み",
       "saving": "保存中",
-      "wordsCount": "{{count}} 語",
       "startWriting": "書き始める..."
+    },
+    "participants": {
+      "attendee": "名の参加者",
+      "attendees": "名の参加者",
+      "addAttendees": "参加者を追加",
+      "addPlaceholder": "参加者を追加...",
+      "typeEmail": "メールアドレスを入力して追加...",
+      "me": "（自分）"
     },
     "context": {
       "moveToFolder": "フォルダに移動",
@@ -1486,7 +1579,8 @@
       "rename": "名前を変更",
       "searchFolders": "フォルダを検索...",
       "noResults": "フォルダが見つかりません",
-      "newFolder": "新しいフォルダ"
+      "newFolder": "新しいフォルダ",
+      "showInFileManager": "{{manager}}で表示"
     },
     "actions": {
       "manage": "アクションを管理...",
@@ -1501,6 +1595,9 @@
       "update": "更新",
       "cancel": "キャンセル",
       "noActions": "カスタムアクションはまだありません",
+      "promptLabel": "プロンプト",
+      "emptyEditorTitle": "アクションを選択",
+      "emptyEditorDescription": "リストからアクションを選択するか、新しく作成してください",
       "runAction": "{{name}} を実行",
       "selectAction": "アクションを選択",
       "done": "完了",
@@ -1735,7 +1832,30 @@
     "learnMore": "詳しく見る",
     "integrations": "連携",
     "defaultUser": "ユーザー",
-    "notSignedIn": "未サインイン"
+    "notSignedIn": "未サインイン",
+    "chat": "チャット"
+  },
+  "chat": {
+    "newChat": "新しいチャット",
+    "search": "会話を検索...",
+    "archived": "アーカイブ済み",
+    "noConversations": "最初の会話を始めましょう",
+    "selectChat": "会話を選択するか、新しく始めてください",
+    "noResults": "該当する会話がありません",
+    "today": "今日",
+    "yesterday": "昨日",
+    "previousWeek": "過去7日間",
+    "older": "それ以前",
+    "archive": "アーカイブ",
+    "unarchive": "アーカイブ解除",
+    "delete": "削除",
+    "deleteConfirm": "この会話は完全に削除されます。元に戻すことはできません。",
+    "editTitle": "ダブルクリックでタイトルを編集",
+    "untitled": "無題",
+    "searchChats": "チャットを検索",
+    "searchTitle": "会話を検索",
+    "searchDescription": "すべての会話を検索",
+    "newChatEmpty": "ノートや文字起こし、その他なんでも聞いてください"
   },
   "usage": {
     "approachingLimit": "週間制限に近づいています",
@@ -1788,7 +1908,8 @@
   "app": {
     "toasts": {
       "hotkeyChanged": {
-        "title": "ホットキーが変更されました"
+        "title": "ホットキーが変更されました",
+        "description": "\"{{original}}\" が使用できませんでした。代わりに \"{{fallback}}\" を使用します。設定で変更できます。"
       },
       "hotkeyUnavailable": {
         "title": "ホットキーが使用できません",
@@ -1834,6 +1955,16 @@
       "systemPrompt": "システムプロンプト",
       "systemPromptDescription": "エージェントへのカスタム指示",
       "systemPromptPlaceholder": "カスタムシステムプロンプトを入力...",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "クラウドプロバイダー",
+        "local": "ローカル",
+        "selfHosted": "セルフホスト",
+        "openwhisprDesc": "設定不要ですぐに使えます。",
+        "providersDesc": "独自のAPIキーを使用。",
+        "localDesc": "デバイス上のモデル。完全プライベート。",
+        "selfHostedDesc": "ネットワーク上の自分のサーバー。"
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "OpenWhisprのクラウドAIをエージェント会話に使用する",
       "customSetup": "カスタム設定 (BYOK)",
@@ -1847,7 +1978,7 @@
       "newConversation": "新規",
       "copyToClipboard": "クリップボードにコピー",
       "copied": "コピーしました！",
-      "emptyState": "{{hotkey}} を長押しして会話を開始",
+      "emptyState": "なんでも聞いてください",
       "errorPrefix": "エラー"
     },
     "titleBar": {
@@ -1860,7 +1991,30 @@
       "toClose": "閉じる",
       "listening": "聞いています...",
       "transcribing": "文字起こし中...",
-      "thinking": "考え中..."
+      "thinking": "考え中...",
+      "typeMessage": "メッセージを入力...",
+      "send": "送信"
+    },
+    "tools": {
+      "search_notesStatus": "ノートを検索中...",
+      "web_searchStatus": "ウェブを検索中...",
+      "copy_to_clipboardStatus": "クリップボードにコピー中...",
+      "get_calendar_eventsStatus": "カレンダーを確認中...",
+      "get_noteStatus": "ノートを読み込み中...",
+      "create_noteStatus": "ノートを作成中...",
+      "update_noteStatus": "ノートを更新中...",
+      "copiedToClipboard": "クリップボードにコピーしました",
+      "foundNotes": "{{count}}件のノートが見つかりました",
+      "foundNotes_plural": "{{count}}件のノートが見つかりました",
+      "searchResults": "{{count}}件の結果が見つかりました",
+      "searchResults_plural": "{{count}}件の結果が見つかりました",
+      "openNote": "ノートを開く",
+      "calendarEvents": "{{count}}件の予定が見つかりました",
+      "calendarEvents_plural": "{{count}}件の予定が見つかりました",
+      "noResults": "結果が見つかりません",
+      "error": "ツールエラー",
+      "unknownTool": "不明なツール: {{name}}",
+      "invalidArgs": "{{name}} のツール引数が無効です"
     }
   },
   "integrations": {
@@ -2001,5 +2155,25 @@
     "title": "権限が必要です",
     "description": "OpenWhispr がこのコンピュータで動作するために、いくつかの権限が必要です。",
     "continue": "続行"
+  },
+  "embeddedChat": {
+    "askPlaceholder": "何でも聞いてください...",
+    "send": "送信",
+    "title": "チャット",
+    "emptyState": "このノートについて質問してください",
+    "dock": "サイドバーに固定",
+    "undock": "サイドバーから外す",
+    "close": "チャットを閉じる",
+    "newChat": "新しいチャット",
+    "conversationSelector": "会話を切り替え"
+  },
+  "transcriptionPreview": {
+    "label": "プレビュー",
+    "listening": "聞き取り中...",
+    "polishing": "整えています...",
+    "ready": "準備完了",
+    "copy": "コピー",
+    "copied": "コピー済み",
+    "waitingForInput": "何か話してください..."
   }
 }

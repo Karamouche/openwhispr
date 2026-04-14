@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.7] - 2026-04-02
+
+### Added
+
+- **Calendar Participants on Meeting Notes**: Automatically link Google Calendar attendees to meeting notes when recording starts from a calendar event, with domain-grouped display and Gravatar avatars
+- **Save Notes as Files**: Export notes to the local filesystem as Markdown files, mirroring folder hierarchy
+- **Responsive Settings Dialog**: Settings dialog adapts to narrow windows — sidebar collapses to icon rail, rows stack vertically, plan grid reflows
+- **Chat Sidebar**: Full sidebar chat tab with conversation history, cloud sync, and semantic search
+- **Chat UX Polish**: Empty state with illustration, shimmer thinking/streaming indicator, stop button, action buttons and search dialog
+- **Local Semantic Search**: Always-on Qdrant vector DB sidecar for offline semantic search across notes — hybrid FTS5 + vector with Reciprocal Rank Fusion
+- **Agent Tool Calling**: Agentic tool-calling system with note management tools (get, create, update, search), cloud agent support with NDJSON streaming, and local model tool calling with RAG context injection
+- **Embedded Chat in Notes**: Embedded chat panel in the note editor with floating and sidebar modes
+- **Per-GPU Device Selector**: Choose a specific GPU for transcription and intelligence processing (#539)
+- **Settings Keyboard Shortcut**: Cmd+, / Ctrl+, keyboard shortcut to open Settings
+- **Notes Actions Button**: Actions sidebar button with redesigned action editor dialog
+- **Notes Folder Picker**: Folder picker in the note metadata row with cleaned-up input styles
+- **Notes Sidebar Buttons**: New note and search notes buttons in the sidebar
+- **Meeting Echo Cancellation**: Echo cancellation on mic input and note metadata chips in meeting view
+- **Linux Wrapper Script**: Wrapper script to force XWayland and support user flags (#507)
+
+### Changed
+
+- **Vercel AI SDK Migration**: Agent mode migrated from raw API calls to Vercel AI SDK
+- **Notes Bottom Bar Redesign**: Redesigned bottom bar with compact action picker
+- **Dialog Design System Alignment**: All dialogs aligned with design system guidelines
+- **Removed Note Word Count**: Removed word count from note editor
+- **Cloud Agent Streaming**: Stream cloud agent responses directly from the renderer via IPC
+
+### Fixed
+
+- **Meeting Auto-Detection**: Fix auto-detection not firing for browser meetings
+- **Meeting Transcription Provider**: Use local transcription provider for notes/meeting recording (#530)
+- **Meeting Partial Transcript Spam**: Prevent partial transcript spam and duplicate final segments
+- **Meeting Notification Timing**: Resolve notification popup timing and detection lifecycle bugs
+- **Folder/Note Race Conditions**: Resolve race conditions when switching folders quickly, prevent meeting view from exiting when changing folder, fix rapid delete/switch state management
+- **Clipboard Preservation**: Preserve images and HTML in clipboard during paste-and-restore (#381)
+- **Transcription Retry Provider**: Retry transcription uses configured provider instead of forcing Parakeet
+- **JSON Parse Validation**: Validate JSON.parse result type before calling .replace() in prompts (#541)
+- **GPU Selector Polish**: Address code review feedback, rename Intelligence GPU label, fix dropdown chevron padding (#539)
+- **Meeting Participant Saves**: Fix calendar attendees not syncing to store and manual participant adds overwriting calendar data
+- **Chat Duplicate Conversations**: Fix duplicate conversations — includeArchived filter returned all instead of only archived
+- **Linux Wayland Fixes**: Force XWayland on KDE/GNOME Wayland, fix hotkey startup race; use uinput before portal on GNOME Wayland (#468, #494)
+- **Mic Permission Gate**: Remove mic permission gate, fix system audio detection
+- **Windows Build Signing**: Fix Windows build signing on PRs, add missing mic-listener download, add missing publisherName to Azure signing config
+- **Dead optimizeAudio Crash**: Remove dead optimizeAudio call that crashes on recordings over 90 seconds (#524)
+- **Download URL Logging**: Remove URL truncation from download log and add failure logging (#540)
+
+### Security
+
+- **Google Calendar Scopes**: Narrow OAuth scope from `calendar.readonly` to `calendar.events.readonly` + `calendar.calendarlist.readonly` for minimal privilege
+- **picomatch**: Bump to 4.0.4
+- **brace-expansion**: Bump to 1.1.13 (security backport)
+- **yaml**: Bump to 2.8.3
+- **tar**: Bump to 7.5.13
+
 ## [1.6.6] - 2026-03-19
 
 ### Added

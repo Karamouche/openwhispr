@@ -104,6 +104,9 @@ OpenWhispr is an Electron-based desktop dictation application that uses whisper.
 - **whisper.js**: Local whisper.cpp integration and model management
 - **parakeet.js**: NVIDIA Parakeet model management via sherpa-onnx
 - **parakeetServer.js**: sherpa-onnx CLI wrapper for transcription
+- **qdrantManager.js**: Qdrant vector DB sidecar process lifecycle (spawn, health check, shutdown)
+- **localEmbeddings.js**: Local text embedding via ONNX Runtime + all-MiniLM-L6-v2 (384-dim vectors)
+- **vectorIndex.js**: Qdrant collection management — upsert, delete, search, batch reindex
 - **windowConfig.js**: Centralized window configuration
 - **windowManager.js**: Window creation and lifecycle management
 
@@ -161,6 +164,32 @@ OpenWhispr is an Electron-based desktop dictation application that uses whisper.
 
 - **Download URLs**: Models from sherpa-onnx ASR models release on GitHub
 
+### Local Semantic Search (Qdrant + MiniLM)
+
+Always-on offline semantic search that finds notes by meaning, not just keywords. Used by the AI agent's `search_notes` tool. Qdrant starts automatically on app launch; embedding model auto-downloads on first run if missing.
+
+**Architecture**:
+- **Qdrant sidecar**: Rust binary spawned as child process (`qdrantManager.js`), port 6333–6350
+- **Embedding model**: `all-MiniLM-L6-v2` via ONNX Runtime (`localEmbeddings.js`), 384-dim vectors
+- **Vector index**: Qdrant collection management (`vectorIndex.js`), cosine distance
+- **Hybrid search**: FTS5 + Qdrant in parallel → Reciprocal Rank Fusion (K=60) with 0.3 cosine score threshold
+
+**Pipeline**:
+1. App launches → Qdrant binary starts → collection created. Embedding model auto-downloads if missing (~22MB)
+2. Note create/update/delete → SQLite write → background vector upsert/delete via `_asyncVectorUpsert()`/`_asyncVectorDelete()`
+3. Agent searches → `db-semantic-search-notes` IPC → parallel FTS5 + vector search → RRF merge → ranked results
+
+**Search fallback chain** (in `searchNotesTool.ts`): cloud search → local semantic → FTS5 keyword
+
+**Storage**:
+- Qdrant data: `~/.cache/openwhispr/qdrant-data/`
+- Qdrant binary: `resources/bin/qdrant-{platform}-{arch}` (bundled — downloaded during `prebuild` / `predev`)
+- Embedding model: `~/.cache/openwhispr/embedding-models/all-MiniLM-L6-v2/` (auto-downloaded on first launch)
+
+**Dependencies**: `@qdrant/js-client-rest`, `onnxruntime-node`
+
+**Dev setup**: The Qdrant binary downloads automatically via `predev`/`prestart`. The embedding model auto-downloads on first app launch. To manually download: `npm run download:qdrant` and `npm run download:embedding-model`.
+
 ### Build Scripts (scripts/)
 
 - **download-whisper-cpp.js**: Downloads whisper.cpp binaries from GitHub releases
@@ -169,6 +198,8 @@ OpenWhispr is an Electron-based desktop dictation application that uses whisper.
 - **download-windows-key-listener.js**: Downloads prebuilt Windows key listener binary
 - **download-windows-mic-listener.js**: Downloads prebuilt Windows mic listener binary
 - **download-sherpa-onnx.js**: Downloads sherpa-onnx binaries for Parakeet support
+- **download-qdrant.js**: Downloads Qdrant vector DB binary for local semantic search
+- **download-minilm.js**: Downloads all-MiniLM-L6-v2 ONNX model + tokenizer for local embeddings
 - **build-globe-listener.js**: Compiles macOS Globe key listener from Swift source
 - **build-macos-mic-listener.js**: Compiles macOS mic listener from Swift source
 - **build-windows-key-listener.js**: Compiles Windows key listener (for local development)
@@ -230,9 +261,9 @@ CREATE TABLE transcriptions (
 Settings stored in localStorage with these keys:
 - `whisperModel`: Selected Whisper model
 - `useLocalWhisper`: Boolean for local vs cloud
-- `openaiApiKey`: Encrypted API key
-- `anthropicApiKey`: Encrypted API key
-- `geminiApiKey`: Encrypted API key
+- `openaiApiKey`: API key (plaintext)
+- `anthropicApiKey`: API key (plaintext)
+- `geminiApiKey`: API key (plaintext)
 - `language`: Selected language code
 - `agentName`: User's custom agent name
 - `reasoningModel`: Selected AI model for processing
@@ -520,7 +551,8 @@ const { t } = useTranslation();
 2. **New Setting**: Update useSettings.ts and SettingsPage.tsx
 3. **New UI Component**: Follow shadcn/ui patterns in src/components/ui
 4. **New Manager**: Create in src/helpers/, initialize in main.js
-5. **New UI Strings**: Add translation keys to all 9 language files (see i18n section above)
+5. **New UI Strings**: Add translation keys to all 10 language files (see i18n section above)
+6. **New Sidecar Binary**: Add download script in `scripts/`, add to `prebuild*` scripts in package.json, add manager in `src/helpers/`, initialize in `main.js`, shutdown in `will-quit` handler
 
 ### Testing Checklist
 
@@ -539,6 +571,9 @@ const { t } = useTranslation();
 - [ ] Verify meeting detection works with event-driven mode (check debug logs for "event-driven")
 - [ ] Test meeting notification suppression during recording
 - [ ] Test post-recording cooldown (notifications shouldn't flash immediately)
+- [ ] Create a note about "quarterly revenue projections", search via agent for "financial forecast" — should match semantically
+- [ ] Verify Qdrant starts on app launch (check debug logs for "qdrant started successfully")
+- [ ] Kill Qdrant process manually — verify FTS5 keyword search still works as fallback
 
 ### Common Issues and Solutions
 
@@ -582,6 +617,14 @@ const { t } = useTranslation();
    - Windows: Verify `windows-mic-listener.exe` exists in `resources/bin/` (downloaded during `prebuild:win`)
    - Linux: Verify `pactl` is installed (`pulseaudio-utils` or `pipewire-pulse` package)
    - If event-driven binary is missing, detection falls back to polling automatically
+
+7. **Local Semantic Search Not Working**:
+   - Qdrant binary should be in `resources/bin/qdrant-{platform}-{arch}` (auto-downloaded during `predev`/`prebuild`)
+   - Embedding model should be in `~/.cache/openwhispr/embedding-models/all-MiniLM-L6-v2/model.onnx` (auto-downloaded on first app launch)
+   - Run `npm run download:qdrant` and `npm run download:embedding-model` manually if missing
+   - Check debug logs for "qdrant" entries (port, health check, errors)
+   - If Qdrant fails to start, search still works via FTS5 keyword fallback
+   - Semantic search is only available through the AI agent's `search_notes` tool, not the manual search UI
 
 ### Platform-Specific Notes
 
@@ -650,7 +693,7 @@ const { t } = useTranslation();
 
 ## Security Considerations
 
-- API keys stored in system keychain when possible
+- API keys stored in plaintext in userData `.env` and localStorage (not yet encrypted — see #532)
 - Context isolation enabled
 - No remote code execution
 - Sanitized file paths

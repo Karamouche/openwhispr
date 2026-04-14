@@ -7,6 +7,14 @@
       "uiDescription": "Choose the language used throughout OpenWhispr's interface",
       "transcriptionLabel": "Transcription language",
       "transcriptionDescription": "Choose the language you speak for more accurate transcription"
+    },
+    "noteFiles": {
+      "title": "Save notes as files",
+      "description": "Automatically save notes as .md files on disk, organized by folder",
+      "path": "Save location",
+      "changePath": "Change location",
+      "rebuild": "Rebuild all files",
+      "rebuildDescription": "Re-sync all notes to disk"
     }
   },
   "tray": {
@@ -22,6 +30,7 @@
     "appLabel": "OpenWhispr",
     "quit": "Quit OpenWhispr",
     "speech": "Speech",
+    "settings": "Settings...",
     "help": "Help",
     "learnMore": "Learn More",
     "file": "File",
@@ -254,6 +263,9 @@
       "failedCtaSettings": "Set up your transcription provider",
       "failedCtaAndRetry": "then click retry",
       "failedCtaSettingsOnly": "Set up your transcription provider in Settings",
+      "failedCtaSignIn": "Sign in again",
+      "failedLimitReached": "Daily limit reached",
+      "failedOffline": "You're offline",
       "rawTranscript": "Raw Transcript",
       "clearAll": "Clear all",
       "clearAllTitle": "Clear All Transcriptions",
@@ -1130,6 +1142,16 @@
       "description": "Clean up transcriptions, handle commands, and fix errors while preserving your tone.",
       "enableTextCleanup": "Enable text cleanup",
       "enableTextCleanupDescription": "AI improves transcription quality",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "Cloud Providers",
+        "local": "Local",
+        "selfHosted": "Self-Hosted",
+        "openwhisprDesc": "Just works. No setup needed.",
+        "providersDesc": "Bring your own API key.",
+        "localDesc": "On-device models. Fully private.",
+        "selfHostedDesc": "Your own server on your network."
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "Just works. No configuration needed.",
       "title": "AI Text Enhancement",
@@ -1141,6 +1163,18 @@
         "switchedCustom": {
           "description": "Configure your own provider and API key.",
           "title": "Switched to Custom Setup"
+        },
+        "switchedProviders": {
+          "title": "Cloud Providers",
+          "description": "Using your own API keys."
+        },
+        "switchedLocal": {
+          "title": "On Device",
+          "description": "AI runs locally on your machine."
+        },
+        "switchedSelfHosted": {
+          "title": "Self-Hosted",
+          "description": "Using your own server."
         }
       }
     },
@@ -1421,6 +1455,16 @@
       "customSetup": "Custom Setup",
       "customSetupDescription": "Use your own provider and API key.",
       "description": "Choose how OpenWhispr transcribes your voice",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "Cloud Providers",
+        "local": "Local",
+        "selfHosted": "Self-Hosted",
+        "openwhisprDesc": "Just works. No setup needed.",
+        "providersDesc": "Bring your own API key.",
+        "localDesc": "On-device models. Fully private.",
+        "selfHostedDesc": "Your own server on your network."
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "Just works. No configuration needed.",
       "title": "Speech to Text",
@@ -1432,8 +1476,38 @@
         "switchedCustom": {
           "description": "Configure your own provider and API key.",
           "title": "Switched to Custom Setup"
+        },
+        "switchedProviders": {
+          "title": "Cloud Providers",
+          "description": "Using your own API keys."
+        },
+        "switchedLocal": {
+          "title": "On Device",
+          "description": "Transcription runs locally on your machine."
+        },
+        "switchedSelfHosted": {
+          "title": "Self-Hosted",
+          "description": "Using your own server."
         }
+      },
+      "gpuDevice": {
+        "title": "Transcription GPU",
+        "description": "GPU used for local speech-to-text"
+      },
+      "transcriptionPreview": "Live Transcription Preview",
+      "transcriptionPreviewDescription": "Show transcription in a floating window before cleanup"
+    },
+    "intelligence": {
+      "gpuDevice": {
+        "title": "Intelligence GPU",
+        "description": "GPU used for local AI processing"
       }
+    },
+    "selfHosted": {
+      "endpointUrl": "Endpoint URL",
+      "serverUrl": "Server URL",
+      "apiKeyOptional": "API Key (optional)",
+      "lanHint": "Audio stays on your network — nothing leaves your LAN."
     }
   },
   "models": {
@@ -1502,6 +1576,10 @@
         "llama_llama_3_1_8b_instruct_q4_k_m": "Powerful model with great performance",
         "openai_oss_gpt_oss_20b_mxfp4": "OpenAI's open-weight model for consumer hardware",
         "gemma_gemma_3_4b_it_q4_k_m": "Google's open-weight model, great balance of speed and quality",
+        "gemma_gemma_4_31b_it_q4_k_m": "Google's largest Gemma 4, best quality",
+        "gemma_gemma_4_26b_a4b_it_q4_k_m": "Google's MoE Gemma 4, fast with 4B active params",
+        "gemma_gemma_4_e4b_it_q4_k_m": "Google's latest multimodal, strong reasoning",
+        "gemma_gemma_4_e2b_it_q4_k_m": "Google's compact Gemma 4, fast and efficient",
         "gemma_gemma_3_12b_it_q4_k_m": "Google's mid-range model, strong reasoning",
         "gemma_gemma_3_1b_it_q4_k_m": "Ultra-fast Google model, best for short dictation cleanup"
       }
@@ -1523,7 +1601,30 @@
     "learnMore": "Learn more",
     "integrations": "Integrations",
     "defaultUser": "User",
-    "notSignedIn": "Not signed in"
+    "notSignedIn": "Not signed in",
+    "chat": "Chat"
+  },
+  "chat": {
+    "newChat": "New chat",
+    "search": "Search conversations...",
+    "archived": "Archived",
+    "noConversations": "Start your first conversation",
+    "selectChat": "Select a conversation or start a new one",
+    "noResults": "No matching conversations",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "previousWeek": "Previous 7 Days",
+    "older": "Older",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "delete": "Delete",
+    "deleteConfirm": "This conversation will be permanently deleted. This cannot be undone.",
+    "editTitle": "Double-click to edit title",
+    "untitled": "Untitled",
+    "searchChats": "Search chats",
+    "searchTitle": "Search conversations",
+    "searchDescription": "Search across all your conversations",
+    "newChatEmpty": "Ask about your notes, transcripts, or anything else"
   },
   "referral": {
     "title": "Refer and earn rewards",
@@ -1618,6 +1719,11 @@
     "upgradeUnlimited": "Upgrade to Pro — unlimited transcriptions"
   },
   "notes": {
+    "sidebar": {
+      "newNote": "New note",
+      "searchNotes": "Search notes",
+      "actions": "Actions"
+    },
     "folders": {
       "title": "Folders",
       "soon": "Soon",
@@ -1648,13 +1754,23 @@
       "raw": "Raw",
       "enhanced": "Enhanced",
       "saving": "Saving",
-      "wordsCount": "{{count}} words",
       "startWriting": "Start writing...",
       "staleIndicator": "Content has changed since enhancement",
       "live": "Live",
       "transcript": "Transcript",
       "notes": "Notes",
-      "conversationWillAppear": "Conversation will appear here..."
+      "conversationWillAppear": "Conversation will appear here...",
+      "linkedEvent": "Linked event",
+      "noFolder": "No folder",
+      "participants": "Participants"
+    },
+    "participants": {
+      "attendee": "attendee",
+      "attendees": "attendees",
+      "addAttendees": "Add attendees",
+      "addPlaceholder": "Add attendees...",
+      "typeEmail": "Type an email to add...",
+      "me": "(me)"
     },
     "upload": {
       "title": "Upload Audio",
@@ -1728,7 +1844,8 @@
       "rename": "Rename",
       "searchFolders": "Search folders...",
       "noResults": "No folders found",
-      "newFolder": "New folder"
+      "newFolder": "New folder",
+      "showInFileManager": "Show in {{manager}}"
     },
     "actions": {
       "done": "Done",
@@ -1744,6 +1861,9 @@
       "update": "Update",
       "cancel": "Cancel",
       "noActions": "No custom actions yet",
+      "promptLabel": "Prompt",
+      "emptyEditorTitle": "Select an action",
+      "emptyEditorDescription": "Choose an action from the list or create a new one",
       "runAction": "Run {{name}}",
       "selectAction": "Select action",
       "builtin": {
@@ -1836,7 +1956,8 @@
   "app": {
     "toasts": {
       "hotkeyChanged": {
-        "title": "Hotkey changed"
+        "title": "Hotkey changed",
+        "description": "\"{{original}}\" was unavailable. Using \"{{fallback}}\" instead. You can change this in Settings."
       },
       "hotkeyUnavailable": {
         "title": "Hotkey unavailable",
@@ -1882,6 +2003,16 @@
       "systemPrompt": "System Prompt",
       "systemPromptDescription": "Custom instructions for the agent",
       "systemPromptPlaceholder": "Enter custom system prompt...",
+      "modes": {
+        "openwhispr": "OpenWhispr",
+        "providers": "Cloud Providers",
+        "local": "Local",
+        "selfHosted": "Self-Hosted",
+        "openwhisprDesc": "Just works. No setup needed.",
+        "providersDesc": "Bring your own API key.",
+        "localDesc": "On-device models. Fully private.",
+        "selfHostedDesc": "Your own server on your network."
+      },
       "openwhisprCloud": "OpenWhispr Cloud",
       "openwhisprCloudDescription": "Use OpenWhispr's cloud AI for agent conversations",
       "customSetup": "Custom Setup (BYOK)",
@@ -1895,7 +2026,7 @@
       "newConversation": "New",
       "copyToClipboard": "Copy to clipboard",
       "copied": "Copied!",
-      "emptyState": "Hold {{hotkey}} to start a conversation",
+      "emptyState": "Ask me anything",
       "errorPrefix": "Error"
     },
     "titleBar": {
@@ -1908,7 +2039,30 @@
       "toClose": "close",
       "listening": "Listening...",
       "transcribing": "Transcribing...",
-      "thinking": "Thinking..."
+      "thinking": "Thinking...",
+      "typeMessage": "Type a message...",
+      "send": "Send"
+    },
+    "tools": {
+      "search_notesStatus": "Searching notes...",
+      "web_searchStatus": "Searching the web...",
+      "copy_to_clipboardStatus": "Copying to clipboard...",
+      "get_calendar_eventsStatus": "Checking calendar...",
+      "get_noteStatus": "Reading note...",
+      "create_noteStatus": "Creating note...",
+      "update_noteStatus": "Updating note...",
+      "copiedToClipboard": "Copied to your clipboard",
+      "foundNotes": "Found {{count}} note",
+      "foundNotes_plural": "Found {{count}} notes",
+      "searchResults": "Found {{count}} result",
+      "searchResults_plural": "Found {{count}} results",
+      "openNote": "Open note",
+      "calendarEvents": "Found {{count}} event",
+      "calendarEvents_plural": "Found {{count}} events",
+      "noResults": "No results found",
+      "error": "Tool error",
+      "unknownTool": "Unknown tool: {{name}}",
+      "invalidArgs": "Invalid tool arguments for {{name}}"
     }
   },
   "integrations": {
@@ -2001,5 +2155,25 @@
     "title": "Permissions Required",
     "description": "OpenWhispr needs a few permissions to work on this computer.",
     "continue": "Continue"
+  },
+  "embeddedChat": {
+    "askPlaceholder": "Ask anything...",
+    "send": "Send",
+    "title": "Chat",
+    "emptyState": "Ask a question about this note",
+    "dock": "Dock to sidebar",
+    "undock": "Undock from sidebar",
+    "close": "Close chat",
+    "newChat": "New chat",
+    "conversationSelector": "Switch conversation"
+  },
+  "transcriptionPreview": {
+    "label": "Preview",
+    "listening": "Listening...",
+    "polishing": "Polishing...",
+    "ready": "Ready",
+    "copy": "Copy",
+    "copied": "Copied",
+    "waitingForInput": "Say something..."
   }
 }

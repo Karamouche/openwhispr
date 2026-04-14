@@ -344,6 +344,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         this._silenceCtx = null;
         this._silenceAnalyser = null;
 
+        this.cleanupPreview({ showCleanup: this.shouldShowPreviewCleanupState() });
+
         this.isRecording = false;
         this.isProcessing = true;
         this.onStateChange?.({ isRecording: false, isProcessing: true });
@@ -373,6 +375,36 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       this.mediaRecorder.start();
       this.isRecording = true;
       this.onStateChange?.({ isRecording: true, isProcessing: false });
+
+      const {
+        showTranscriptionPreview,
+        useLocalWhisper,
+        localTranscriptionProvider,
+        whisperModel,
+        parakeetModel,
+      } = getSettings();
+      if (showTranscriptionPreview && useLocalWhisper) {
+        try {
+          this._previewAudioContext = new AudioContext({ sampleRate: 16000 });
+          this._previewSource = this._previewAudioContext.createMediaStreamSource(micStream);
+          await this._previewAudioContext.audioWorklet.addModule(this.getWorkletBlobUrl());
+
+          this._previewProcessor = new AudioWorkletNode(
+            this._previewAudioContext,
+            "pcm-streaming-processor"
+          );
+          this._previewProcessor.port.onmessage = (event) => {
+            window.electronAPI?.sendDictationPreviewAudio?.(event.data);
+          };
+          this._previewSource.connect(this._previewProcessor);
+
+          const provider = localTranscriptionProvider === "nvidia" ? "nvidia" : "whisper";
+          const model = provider === "nvidia" ? parakeetModel : whisperModel;
+          window.electronAPI?.startDictationPreview?.({ provider, model });
+        } catch (e) {
+          logger.warn("Preview worklet setup failed", { error: e.message }, "audio");
+        }
+      }
 
       return true;
     } catch (error) {
@@ -411,6 +443,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   cancelRecording() {
     if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
       this.mediaRecorder.onstop = () => {
+        this.cleanupPreview({ dismiss: true });
         this.isRecording = false;
         this.isProcessing = false;
         this.audioChunks = [];
@@ -561,7 +594,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
         // Save failed transcription with audio so the user can retry later
         if (this.lastAudioBlob) {
-          this.saveFailedTranscription(error.message, metadata);
+          this.saveFailedTranscription(error.message, error.code || null, metadata);
         }
       }
     } finally {
@@ -783,7 +816,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         apiKey = await window.electronAPI.getMistralKey?.();
       }
       if (!isValidApiKey(apiKey, "mistral")) {
-        throw new Error("Mistral API key not found. Please set your API key in the Control Panel.");
+        const err = new Error(
+          "Mistral API key not found. Please set your API key in the Control Panel."
+        );
+        err.code = "API_KEY_MISSING";
+        throw err;
       }
     } else if (provider === "groq") {
       // Prefer store value (user-entered via UI) over main process (.env)
@@ -792,7 +829,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         apiKey = await window.electronAPI.getGroqKey?.();
       }
       if (!isValidApiKey(apiKey, "groq")) {
-        throw new Error("Groq API key not found. Please set your API key in the Control Panel.");
+        const err = new Error(
+          "Groq API key not found. Please set your API key in the Control Panel."
+        );
+        err.code = "API_KEY_MISSING";
+        throw err;
       }
     } else {
       // Default to OpenAI
@@ -803,9 +844,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         apiKey = await window.electronAPI.getOpenAIKey();
       }
       if (!isValidApiKey(apiKey, "openai")) {
-        throw new Error(
+        const err = new Error(
           "OpenAI API key not found. Please set your API key in the .env file or Control Panel."
         );
+        err.code = "API_KEY_MISSING";
+        throw err;
       }
     }
 
@@ -926,6 +969,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       logger.logReasoning("TRANSCRIPTION_EMPTY_SKIPPING_REASONING", {
         source,
         reason: "Empty text after normalization",
+      });
+      return normalizedText;
+    }
+
+    if (this.skipReasoning) {
+      logger.logReasoning("REASONING_SKIPPED_AGENT_MODE", {
+        source,
+        reason: "skipReasoning is set (agent mode) — returning raw transcription",
       });
       return normalizedText;
     }
@@ -1470,7 +1521,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           },
           "transcription"
         );
-        throw new Error(`API Error: ${response.status} ${errorText}`);
+        const err = new Error(`API Error: ${response.status} ${errorText}`);
+        if (response.status === 401) err.code = "INVALID_KEY";
+        else if (response.status === 429) err.code = "LIMIT_REACHED";
+        else if (response.status >= 500) err.code = "SERVER_ERROR";
+        throw err;
       }
 
       let result;
@@ -1819,7 +1874,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
-  async saveFailedTranscription(errorMessage, metadata = {}) {
+  async saveFailedTranscription(errorMessage, errorCode = null, metadata = {}) {
     if (!getSettings().dataRetentionEnabled) {
       logger.debug("Skipping failed transcription save — data retention disabled", {}, "audio");
       this.lastAudioBlob = null;
@@ -1831,6 +1886,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const result = await window.electronAPI.saveTranscription("", null, {
         status: "failed",
         errorMessage,
+        errorCode,
       });
 
       if (result?.id && this.lastAudioBlob) {
@@ -2517,6 +2573,34 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
 
     return true;
+  }
+
+  shouldShowPreviewCleanupState() {
+    const settings = getSettings();
+    return !!settings.useReasoningModel && !this.skipReasoning;
+  }
+
+  cleanupPreview(options = {}) {
+    const { dismiss = false, showCleanup = false } = options;
+
+    if (this._previewProcessor) {
+      this._previewProcessor.port.postMessage("stop");
+      this._previewProcessor.disconnect();
+      this._previewProcessor = null;
+    }
+    if (this._previewSource) {
+      this._previewSource.disconnect();
+      this._previewSource = null;
+    }
+    if (this._previewAudioContext) {
+      this._previewAudioContext.close().catch(() => {});
+      this._previewAudioContext = null;
+    }
+    if (dismiss) {
+      window.electronAPI?.dismissDictationPreview?.();
+      return;
+    }
+    window.electronAPI?.stopDictationPreview?.({ showCleanup });
   }
 
   cleanupStreamingAudio() {

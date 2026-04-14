@@ -7,6 +7,7 @@ import { SettingsPanel, SettingsPanelRow } from "./ui/SettingsSection";
 import { ConfirmDialog } from "./ui/dialog";
 import { useSettingsStore } from "../stores/settingsStore";
 import { useSystemAudioPermission } from "../hooks/useSystemAudioPermission";
+import { canManageSystemAudioInApp } from "../utils/systemAudioAccess";
 import googleCalendarIcon from "../assets/icons/google-calendar.svg";
 
 export default function IntegrationsView() {
@@ -17,7 +18,9 @@ export default function IntegrationsView() {
   const [confirmDisconnectEmail, setConfirmDisconnectEmail] = useState<string | null>(null);
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const systemAudio = useSystemAudioPermission();
+  const { request: requestSystemAudioAccess } = systemAudio;
   const hasAccounts = gcalAccounts.length > 0;
+  const needsSystemAudioGrant = !systemAudio.granted && canManageSystemAudioInApp(systemAudio);
 
   const startOAuth = useCallback(async () => {
     setIsConnecting(true);
@@ -36,12 +39,15 @@ export default function IntegrationsView() {
   }, [setGcalAccounts]);
 
   const handleConnect = useCallback(async () => {
-    if (systemAudio.isMacOS && systemAudio.status === "denied") {
-      setShowPermissionDialog(true);
-      return;
+    if (needsSystemAudioGrant) {
+      const granted = await requestSystemAudioAccess();
+      if (!granted) {
+        setShowPermissionDialog(true);
+        return;
+      }
     }
     await startOAuth();
-  }, [systemAudio.isMacOS, systemAudio.status, startOAuth]);
+  }, [needsSystemAudioGrant, requestSystemAudioAccess, startOAuth]);
 
   const handleDisconnect = useCallback(
     async (email: string) => {
@@ -215,8 +221,12 @@ export default function IntegrationsView() {
         onOpenChange={setShowPermissionDialog}
         title={t("integrations.googleCalendar.systemAudioRequired")}
         description={t("integrations.googleCalendar.systemAudioDescription")}
-        confirmText={t("integrations.googleCalendar.openSettings")}
-        onConfirm={systemAudio.openSettings}
+        confirmText={
+          systemAudio.mode === "native"
+            ? t("integrations.googleCalendar.openSettings")
+            : t("onboarding.permissions.grantAccess")
+        }
+        onConfirm={systemAudio.mode === "native" ? systemAudio.openSettings : systemAudio.request}
       />
     </div>
   );
