@@ -37,7 +37,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: resources/bin
-          key: linux-x64-bin-${{ hashFiles('scripts/download-*.js', 'scripts/build-meeting-aec-helper.js', 'scripts/lib/meeting-aec-build.js', 'native/meeting-aec-helper/**') }}
+          key: linux-x64-bin-${{ hashFiles('scripts/download-*.js') }}
 
       - name: Download whisper.cpp binaries
         run: node scripts/download-whisper-cpp.js --current
@@ -56,6 +56,11 @@ jobs:
 
       - name: Download Qdrant binary
         run: node scripts/download-qdrant.js --current
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+
+      - name: Download meeting AEC helper
+        run: node scripts/download-meeting-aec-helper.js --current
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
 
@@ -112,7 +117,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: resources/bin
-          key: windows-x64-bin-${{ hashFiles('scripts/download-*.js', 'scripts/build-meeting-aec-helper.js', 'scripts/lib/meeting-aec-build.js', 'native/meeting-aec-helper/**') }}
+          key: windows-x64-bin-${{ hashFiles('scripts/download-*.js') }}
 
       - name: Download whisper.cpp binaries
         run: node scripts/download-whisper-cpp.js --current
@@ -131,6 +136,11 @@ jobs:
 
       - name: Download Qdrant binary
         run: node scripts/download-qdrant.js --current
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+
+      - name: Download meeting AEC helper
+        run: node scripts/download-meeting-aec-helper.js --current
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
 
@@ -213,7 +223,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: resources/bin
-          key: macos-${{ matrix.arch }}-bin-${{ hashFiles('scripts/download-*.js', 'scripts/build-globe-listener.js', 'resources/macos-globe-listener.swift', 'scripts/build-macos-fast-paste.js', 'resources/macos-fast-paste.swift', 'scripts/build-meeting-aec-helper.js', 'scripts/lib/meeting-aec-build.js', 'native/meeting-aec-helper/**') }}
+          key: macos-${{ matrix.arch }}-bin-${{ hashFiles('scripts/download-*.js', 'scripts/build-globe-listener.js', 'resources/macos-globe-listener.swift', 'scripts/build-macos-fast-paste.js', 'resources/macos-fast-paste.swift') }}
 
       - name: Download whisper.cpp binaries
         run: node scripts/download-whisper-cpp.js --current --platform darwin --arch ${{ matrix.arch }}
@@ -232,6 +242,11 @@ jobs:
 
       - name: Download Qdrant binary
         run: node scripts/download-qdrant.js --current --platform darwin --arch ${{ matrix.arch }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+
+      - name: Download meeting AEC helper
+        run: node scripts/download-meeting-aec-helper.js --current --platform darwin --arch ${{ matrix.arch }}
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
 
