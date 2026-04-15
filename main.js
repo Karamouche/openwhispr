@@ -18,6 +18,7 @@ if (
 
 const {
   app,
+  desktopCapturer,
   globalShortcut,
   BrowserWindow,
   dialog,
@@ -93,10 +94,6 @@ require("dotenv").config({
 if (process.platform === "linux") {
   app.commandLine.appendSwitch("gtk-version", "3");
   app.commandLine.appendSwitch("enable-transparent-visuals");
-  app.commandLine.appendSwitch("disable-gpu-compositing");
-}
-
-if (process.platform === "win32") {
   app.commandLine.appendSwitch("disable-gpu-compositing");
 }
 
@@ -194,6 +191,7 @@ const DatabaseManager = require("./src/helpers/database");
 const ClipboardManager = require("./src/helpers/clipboard");
 const WhisperManager = require("./src/helpers/whisper");
 const ParakeetManager = require("./src/helpers/parakeet");
+const DiarizationManager = require("./src/helpers/diarization");
 const TrayManager = require("./src/helpers/tray");
 const IPCHandlers = require("./src/helpers/ipcHandlers");
 const UpdateManager = require("./src/updater");
@@ -206,6 +204,8 @@ const GoogleCalendarManager = require("./src/helpers/googleCalendarManager");
 const MeetingProcessDetector = require("./src/helpers/meetingProcessDetector");
 const AudioActivityDetector = require("./src/helpers/audioActivityDetector");
 const AudioTapManager = require("./src/helpers/audioTapManager");
+const LinuxPortalAudioManager = require("./src/helpers/linuxPortalAudioManager");
+const MeetingAecManager = require("./src/helpers/meetingAecManager");
 const MeetingDetectionEngine = require("./src/helpers/meetingDetectionEngine");
 const { i18nMain, changeLanguage } = require("./src/helpers/i18nMain");
 const { ensureYdotool } = require("./src/helpers/ensureYdotool");
@@ -219,6 +219,7 @@ let databaseManager = null;
 let clipboardManager = null;
 let whisperManager = null;
 let parakeetManager = null;
+let diarizationManager = null;
 let trayManager = null;
 let updateManager = null;
 let globeKeyManager = null;
@@ -228,6 +229,8 @@ let whisperCudaManager = null;
 let googleCalendarManager = null;
 let meetingDetectionEngine = null;
 let audioTapManager = null;
+let linuxPortalAudioManager = null;
+let meetingAecManager = null;
 let qdrantManager = null;
 let ipcHandlers = null;
 let globeKeyAlertShown = false;
@@ -292,6 +295,7 @@ function initializeCoreManagers() {
     whisperCudaManager = new WhisperCudaManager();
   }
   parakeetManager = new ParakeetManager();
+  diarizationManager = new DiarizationManager();
   googleCalendarManager = new GoogleCalendarManager(databaseManager, windowManager);
   meetingDetectionEngine = new MeetingDetectionEngine(
     googleCalendarManager,
@@ -306,6 +310,8 @@ function initializeCoreManagers() {
   windowsKeyManager = new WindowsKeyManager();
   textEditMonitor = new TextEditMonitor();
   audioTapManager = new AudioTapManager();
+  linuxPortalAudioManager = new LinuxPortalAudioManager();
+  meetingAecManager = new MeetingAecManager();
   windowManager.textEditMonitor = textEditMonitor;
 
   // IPC handlers must be registered before window content loads
@@ -315,6 +321,7 @@ function initializeCoreManagers() {
     clipboardManager,
     whisperManager,
     parakeetManager,
+    diarizationManager,
     windowManager,
     updateManager,
     windowsKeyManager,
@@ -323,6 +330,8 @@ function initializeCoreManagers() {
     googleCalendarManager,
     meetingDetectionEngine,
     audioTapManager,
+    linuxPortalAudioManager,
+    meetingAecManager,
     getTrayManager: () => trayManager,
   });
 }
@@ -681,6 +690,18 @@ async function startApp() {
     const modelManager = require("./src/helpers/modelManagerBridge").default;
     modelManager.prewarmServer(process.env.LOCAL_REASONING_MODEL).catch((err) => {
       debugLogger.debug("llama-server pre-warm error (non-fatal)", { error: err.message });
+    });
+  }
+
+  // Auto-download diarization models if binary is available
+  if (
+    diarizationManager.getBinaryPath() &&
+    (!diarizationManager.isModelDownloaded() || !diarizationManager.isVadModelDownloaded())
+  ) {
+    diarizationManager.downloadModels().catch((err) => {
+      debugLogger.debug("Diarization model auto-download error (non-fatal)", {
+        error: err.message,
+      });
     });
   }
 
@@ -1076,6 +1097,14 @@ if (gotSingleInstanceLock) {
       return new Promise((resolve) => setTimeout(resolve, delay));
     })
     .then(() => {
+      if (process.platform === "win32") {
+        session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+          desktopCapturer.getSources({ types: ["screen"] }).then((sources) => {
+            callback({ video: sources[0], audio: "loopback" });
+          });
+        });
+      }
+
       startApp().catch((error) => {
         console.error("Failed to start app:", error);
         dialog.showErrorBox(
@@ -1147,6 +1176,9 @@ if (gotSingleInstanceLock) {
     if (windowManager && isLiveWindow(windowManager.agentWindow)) {
       windowManager.agentWindow.destroy();
     }
+    if (windowManager && isLiveWindow(windowManager.transcriptionPreviewWindow)) {
+      windowManager.transcriptionPreviewWindow.destroy();
+    }
     if (hotkeyManager) {
       hotkeyManager.unregisterAll();
     } else {
@@ -1167,6 +1199,12 @@ if (gotSingleInstanceLock) {
     if (audioTapManager) {
       audioTapManager.stop().catch(() => {});
     }
+    if (linuxPortalAudioManager) {
+      linuxPortalAudioManager.stop().catch(() => {});
+    }
+    if (meetingAecManager) {
+      meetingAecManager.stop().catch(() => {});
+    }
     if (ipcHandlers) {
       ipcHandlers._cleanupTextEditMonitor();
     }
@@ -1183,6 +1221,9 @@ if (gotSingleInstanceLock) {
     // Stop parakeet WS server if running
     if (parakeetManager) {
       parakeetManager.stopServer().catch(() => {});
+    }
+    if (diarizationManager) {
+      diarizationManager.shutdown().catch(() => {});
     }
     // Stop llama-server if running
     const modelManager = require("./src/helpers/modelManagerBridge").default;

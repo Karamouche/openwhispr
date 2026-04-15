@@ -1,6 +1,23 @@
 export type LocalTranscriptionProvider = "whisper" | "nvidia";
 
+export type InferenceMode = "openwhispr" | "providers" | "local" | "self-hosted";
+
+export type SelfHostedType = "openai-compatible" | "lan";
+
 export type TranscriptionStatus = "completed" | "failed" | "pending";
+
+export type TranscriptionErrorCode =
+  | "TIMEOUT"
+  | "NETWORK"
+  | "SERVER_ERROR"
+  | "OFFLINE"
+  | "AUTH_EXPIRED"
+  | "AUTH_REQUIRED"
+  | "LIMIT_REACHED"
+  | "API_KEY_MISSING"
+  | "INVALID_KEY"
+  | "MODEL_NOT_AVAILABLE"
+  | null;
 
 export interface TranscriptionItem {
   id: number;
@@ -14,6 +31,7 @@ export interface TranscriptionItem {
   model: string | null;
   status: TranscriptionStatus;
   error_message: string | null;
+  error_code: TranscriptionErrorCode;
 }
 
 export interface NoteItem {
@@ -122,10 +140,26 @@ export interface AudioDiagnosticsResult {
   models: string[];
 }
 
+export type SystemAudioMode = "native" | "loopback" | "portal" | "unsupported";
+export type SystemAudioStrategy =
+  | "native"
+  | "loopback"
+  | "browser-portal"
+  | "portal-helper"
+  | "unsupported";
+
 export interface SystemAudioAccessResult {
   granted: boolean;
   status: "granted" | "denied" | "not-determined" | "restricted" | "unknown" | "unsupported";
-  mode: "native" | "unsupported";
+  mode: SystemAudioMode;
+  supportsPersistentGrant?: boolean;
+  supportsPersistentPortalGrant?: boolean;
+  supportsNativeCapture?: boolean;
+  supportsOnboardingGrant?: boolean;
+  requiresRuntimeSharePrompt?: boolean;
+  strategy?: SystemAudioStrategy;
+  restoreTokenAvailable?: boolean;
+  portalVersion?: number | null;
   error?: string;
 }
 
@@ -301,7 +335,14 @@ declare global {
   interface Window {
     electronAPI: {
       // Basic window operations
-      pasteText: (text: string, options?: { fromStreaming?: boolean }) => Promise<void>;
+      pasteText: (
+        text: string,
+        options?: {
+          fromStreaming?: boolean;
+          restoreClipboard?: boolean;
+          allowClipboardFallback?: boolean;
+        }
+      ) => Promise<void>;
       hideWindow: () => Promise<void>;
       showDictationPanel: () => Promise<void>;
       onToggleDictation: (callback: () => void) => () => void;
@@ -320,7 +361,11 @@ declare global {
       saveTranscription: (
         text: string,
         rawText?: string | null,
-        options?: { status?: TranscriptionStatus; errorMessage?: string | null }
+        options?: {
+          status?: TranscriptionStatus;
+          errorMessage?: string | null;
+          errorCode?: TranscriptionErrorCode;
+        }
       ) => Promise<{ id: number; success: boolean; transcription?: TranscriptionItem }>;
       getTranscriptions: (limit?: number) => Promise<TranscriptionItem[]>;
       clearTranscriptions: () => Promise<{ cleared: number; success: boolean }>;
@@ -350,8 +395,16 @@ declare global {
           cloudTranscriptionBaseUrl?: string;
           parakeetModel: string;
           whisperModel: string;
+          transcriptionMode?: InferenceMode;
+          remoteTranscriptionType?: SelfHostedType;
+          remoteTranscriptionUrl?: string;
         }
-      ) => Promise<{ success: boolean; transcription?: TranscriptionItem; error?: string }>;
+      ) => Promise<{
+        success: boolean;
+        transcription?: TranscriptionItem;
+        error?: string;
+        code?: TranscriptionErrorCode;
+      }>;
       updateTranscriptionText: (
         id: number,
         text: string,
@@ -721,12 +774,13 @@ declare global {
 
       // Hotkey registration events
       onHotkeyFallbackUsed?: (
-        callback: (data: { original: string; fallback: string; message: string }) => void
+        callback: (data: { original: string; fallback: string }) => void
       ) => () => void;
       onHotkeyRegistrationFailed?: (
         callback: (data: { hotkey: string; error: string; suggestions: string[] }) => void
       ) => () => void;
       onSettingUpdated?: (callback: (data: { key: string; value: unknown }) => void) => () => void;
+      onDictationKeyActive?: (callback: (key: string) => void) => () => void;
 
       // Settings shortcut (Cmd+, / Ctrl+,)
       onShowSettings?: (callback: () => void) => () => void;
@@ -761,6 +815,8 @@ declare global {
 
       // Dictation key persistence (file-based for reliable startup)
       getDictationKey?: () => Promise<string | null>;
+      getActiveDictationKey?: () => Promise<string>;
+      getEffectiveDefaultHotkey?: () => Promise<string>;
       saveDictationKey?: (key: string) => Promise<void>;
 
       // Activation mode persistence (file-based for reliable startup)
@@ -1249,9 +1305,7 @@ declare global {
       }>;
 
       // Contacts
-      searchContacts: (
-        query: string
-      ) => Promise<{
+      searchContacts: (query: string) => Promise<{
         success: boolean;
         contacts: Array<{ email: string; display_name: string | null }>;
       }>;
@@ -1292,22 +1346,112 @@ declare global {
       }) => Promise<{
         success: boolean;
         error?: string;
-        systemAudioMode?: "native" | "unsupported";
+        systemAudioMode?: SystemAudioMode;
+        systemAudioStrategy?: SystemAudioStrategy;
       }>;
       meetingTranscriptionSend?: (buffer: ArrayBuffer, source: "mic" | "system") => void;
       meetingTranscriptionStop?: () => Promise<{
         success: boolean;
         transcript?: string;
+        diarizationSessionId?: string;
         error?: string;
       }>;
       onMeetingTranscriptionSegment?: (
         callback: (data: {
           text: string;
           source: "mic" | "system";
-          type: "partial" | "final";
+          type: "partial" | "final" | "retract";
+          timestamp?: number;
+        }) => void
+      ) => () => void;
+      onMeetingSpeakerIdentified?: (
+        callback: (data: {
+          speakerId: string;
+          displayName?: string | null;
+          startTime: number;
+          endTime: number;
         }) => void
       ) => () => void;
       onMeetingTranscriptionError?: (callback: (error: string) => void) => () => void;
+
+      // Speaker diarization
+      downloadDiarizationModels?: () => Promise<{ success: boolean; error?: string }>;
+      getDiarizationModelStatus?: () => Promise<{
+        available: boolean;
+        modelsDownloaded: boolean;
+      }>;
+      deleteDiarizationModels?: () => Promise<{ success: boolean }>;
+      cancelDiarizationDownload?: () => Promise<{
+        success: boolean;
+        message?: string;
+        error?: string;
+      }>;
+      onDiarizationDownloadProgress?: (callback: (data: any) => void) => () => void;
+      onMeetingDiarizationComplete?: (
+        callback: (data: {
+          sessionId?: string;
+          segments: Array<{
+            id: string;
+            text: string;
+            source: "mic" | "system";
+            timestamp?: number;
+            speaker?: string;
+            speakerName?: string;
+            speakerIsPlaceholder?: boolean;
+            suggestedName?: string;
+            suggestedProfileId?: number;
+            speakerStatus?: "provisional" | "confirmed" | "suggested" | "locked";
+            speakerLocked?: boolean;
+            speakerLockSource?: "user" | "diarization" | "suggestion";
+          }>;
+          speakerEmbeddings?: Record<string, number[]> | null;
+        }) => void
+      ) => () => void;
+
+      // Speaker name mapping
+      getSpeakerMappings?: (noteId: number) => Promise<
+        Array<{
+          note_id: number;
+          speaker_id: string;
+          profile_id: number | null;
+          display_name: string;
+        }>
+      >;
+      setSpeakerMapping?: (
+        noteId: number,
+        speakerId: string,
+        displayName: string,
+        email?: string | null,
+        profileId?: number | null
+      ) => Promise<{ success: boolean; profileId: number | null }>;
+      removeSpeakerMapping?: (noteId: number, speakerId: string) => Promise<{ success: boolean }>;
+      getSpeakerProfiles?: () => Promise<
+        Array<{
+          id: number;
+          display_name: string;
+          email: string | null;
+          sample_count: number;
+          created_at: string;
+          updated_at: string;
+        }>
+      >;
+      attachSpeakerEmail?: (
+        profileId: number,
+        email: string | null
+      ) => Promise<{
+        success: boolean;
+        error?: string;
+        profile?: {
+          id: number;
+          display_name: string;
+          email: string | null;
+          sample_count: number;
+        };
+      }>;
+      saveNoteSpeakerEmbeddings?: (
+        noteId: number,
+        embeddings: Record<string, number[]>
+      ) => Promise<{ success: boolean }>;
 
       // Dictation realtime streaming
       dictationRealtimeWarmup?: (options: {
@@ -1345,6 +1489,7 @@ declare global {
         detectionId: string,
         action: string
       ) => Promise<{ success: boolean }>;
+      joinCalendarMeeting?: (eventId: string) => Promise<{ success: boolean }>;
       onNavigateToMeetingNote?: (
         callback: (data: { noteId: number; folderId: number; event: any }) => void
       ) => () => void;
@@ -1360,6 +1505,27 @@ declare global {
       } | null>;
       updateNotificationReady?: () => Promise<void>;
       updateNotificationRespond?: (action: string) => Promise<{ success: boolean }>;
+      onPreviewText?: (callback: (text: string) => void) => () => void;
+      onPreviewAppend?: (callback: (text: string) => void) => () => void;
+      onPreviewHold?: (callback: (payload: { showCleanup: boolean }) => void) => () => void;
+      onPreviewResult?: (callback: (payload: { text: string }) => void) => () => void;
+      onPreviewHide?: (callback: () => void) => () => void;
+      startDictationPreview?: (opts: {
+        provider: string;
+        model: string;
+      }) => Promise<{ success: boolean }>;
+      stopDictationPreview?: (opts?: { showCleanup?: boolean }) => Promise<{ success: boolean }>;
+      dismissDictationPreview?: () => Promise<{ success: boolean }>;
+      completeDictationPreview?: (payload: { text?: string }) => Promise<{ success: boolean }>;
+      hideDictationPreview?: () => Promise<{ success: boolean }>;
+      resizeTranscriptionPreviewWindow?: (
+        width: number,
+        height: number
+      ) => Promise<{
+        success: boolean;
+        bounds?: { x: number; y: number; width: number; height: number };
+      }>;
+      sendDictationPreviewAudio?: (data: ArrayBuffer) => void;
     };
 
     api?: {

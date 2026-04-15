@@ -5,6 +5,7 @@ import logger from "../utils/logger";
 import { playStartCue, playStopCue } from "../utils/dictationCues";
 import { getSettings } from "../stores/settingsStore";
 import { getRecordingErrorTitle } from "../utils/recordingErrors";
+import { isAccessibilitySkipped } from "../utils/permissions";
 
 export const useAudioRecording = (toast, options = {}) => {
   const { t } = useTranslation();
@@ -95,6 +96,9 @@ export const useAudioRecording = (toast, options = {}) => {
         }
       },
       onError: (error) => {
+        if (error?.title !== "Paste Error") {
+          window.electronAPI?.hideDictationPreview?.();
+        }
         const title = getRecordingErrorTitle(error, t);
         toast({
           title,
@@ -118,10 +122,12 @@ export const useAudioRecording = (toast, options = {}) => {
           const transcribedText = result.text?.trim();
 
           if (!transcribedText) {
+            window.electronAPI?.hideDictationPreview?.();
             return;
           }
 
           setTranscript(result.text);
+          window.electronAPI?.completeDictationPreview?.({ text: result.text });
 
           const isStreaming = result.source?.includes("streaming");
           const { keepTranscriptionInClipboard } = getSettings();
@@ -129,6 +135,7 @@ export const useAudioRecording = (toast, options = {}) => {
           await audioManagerRef.current.safePaste(result.text, {
             ...(isStreaming ? { fromStreaming: true } : {}),
             restoreClipboard: !keepTranscriptionInClipboard,
+            allowClipboardFallback: isAccessibilitySkipped(),
           });
           logger.info(
             "Paste timing",

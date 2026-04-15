@@ -4,7 +4,7 @@ import i18n, { normalizeUiLanguage } from "../i18n";
 import { hasStoredByokKey } from "../utils/byokDetection";
 import { ensureAgentNameInDictionary } from "../utils/agentName";
 import logger from "../utils/logger";
-import type { LocalTranscriptionProvider } from "../types/electron";
+import type { LocalTranscriptionProvider, InferenceMode, SelfHostedType } from "../types/electron";
 import type { GoogleCalendarAccount } from "../types/calendar";
 import type {
   TranscriptionSettings,
@@ -84,6 +84,80 @@ function migratePreferredLanguage() {
 
 migratePreferredLanguage();
 
+function migrateProviderSettings() {
+  if (!isBrowser) return;
+  if (localStorage.getItem("_providerSettingsMigrated") === "1") return;
+
+  const cloudMode = localStorage.getItem("cloudTranscriptionMode");
+  const useLocal = localStorage.getItem("useLocalWhisper") === "true";
+  const provider = localStorage.getItem("cloudTranscriptionProvider");
+
+  let transcriptionMode: InferenceMode = "openwhispr";
+  if (useLocal) {
+    transcriptionMode = "local";
+  } else if (cloudMode === "byok") {
+    transcriptionMode = provider === "custom" ? "self-hosted" : "providers";
+  }
+  localStorage.setItem("transcriptionMode", transcriptionMode);
+
+  if (provider === "custom" && cloudMode === "byok") {
+    localStorage.setItem("remoteTranscriptionType", "openai-compatible");
+  }
+
+  const reasoningMode = localStorage.getItem("cloudReasoningMode");
+  const reasoningProvider = localStorage.getItem("reasoningProvider");
+  let newReasoningMode: InferenceMode = "openwhispr";
+  if (reasoningMode === "byok") {
+    if (reasoningProvider === "custom") {
+      newReasoningMode = "self-hosted";
+    } else if (
+      reasoningProvider === "qwen" ||
+      reasoningProvider === "llama" ||
+      reasoningProvider === "mistral" ||
+      reasoningProvider === "openai-oss" ||
+      reasoningProvider === "gemma"
+    ) {
+      newReasoningMode = "local";
+    } else {
+      newReasoningMode = "providers";
+    }
+  }
+  localStorage.setItem("reasoningMode", newReasoningMode);
+
+  if (reasoningProvider === "custom" && reasoningMode === "byok") {
+    localStorage.setItem("remoteReasoningType", "openai-compatible");
+  }
+
+  localStorage.setItem("_providerSettingsMigrated", "1");
+}
+
+migrateProviderSettings();
+
+function migrateAgentMode() {
+  if (!isBrowser) return;
+  if (localStorage.getItem("_agentModeMigrated") === "1") return;
+
+  const cloudAgentMode = localStorage.getItem("cloudAgentMode");
+  const agentProvider = localStorage.getItem("agentProvider");
+
+  let agentInferenceMode: InferenceMode = "openwhispr";
+  if (cloudAgentMode === "byok") {
+    const localProviders = ["qwen", "llama", "mistral", "openai-oss", "gemma"];
+    if (agentProvider === "custom") {
+      agentInferenceMode = "self-hosted";
+    } else if (agentProvider && localProviders.includes(agentProvider)) {
+      agentInferenceMode = "local";
+    } else {
+      agentInferenceMode = "providers";
+    }
+  }
+  localStorage.setItem("agentInferenceMode", agentInferenceMode);
+
+  localStorage.setItem("_agentModeMigrated", "1");
+}
+
+migrateAgentMode();
+
 export interface SettingsState
   extends
     TranscriptionSettings,
@@ -108,6 +182,20 @@ export interface SettingsState
   keepTranscriptionInClipboard: boolean;
   noteFilesEnabled: boolean;
   noteFilesPath: string;
+
+  transcriptionMode: InferenceMode;
+  remoteTranscriptionType: SelfHostedType;
+  remoteTranscriptionUrl: string;
+  reasoningMode: InferenceMode;
+  remoteReasoningType: SelfHostedType;
+  remoteReasoningUrl: string;
+
+  setTranscriptionMode: (mode: InferenceMode) => void;
+  setRemoteTranscriptionType: (type: SelfHostedType) => void;
+  setRemoteTranscriptionUrl: (url: string) => void;
+  setReasoningMode: (mode: InferenceMode) => void;
+  setRemoteReasoningType: (type: SelfHostedType) => void;
+  setRemoteReasoningUrl: (url: string) => void;
 
   setUseLocalWhisper: (value: boolean) => void;
   setWhisperModel: (value: string) => void;
@@ -169,6 +257,8 @@ export interface SettingsState
   setAgentSystemPrompt: (value: string) => void;
   setAgentEnabled: (value: boolean) => void;
   setCloudAgentMode: (value: string) => void;
+  setAgentInferenceMode: (mode: InferenceMode) => void;
+  setRemoteAgentUrl: (url: string) => void;
 
   updateTranscriptionSettings: (settings: Partial<TranscriptionSettings>) => void;
   updateReasoningSettings: (settings: Partial<ReasoningSettings>) => void;
@@ -188,6 +278,14 @@ function createBooleanSetter(key: string) {
     if (isBrowser) localStorage.setItem(key, String(value));
     useSettingsStore.setState({ [key]: value });
   };
+}
+
+const LOCAL_PROVIDERS = new Set(["qwen", "llama", "mistral", "openai-oss", "gemma"]);
+
+function inferenceModeForProvider(provider: string): Exclude<InferenceMode, "openwhispr"> {
+  if (provider === "custom") return "self-hosted";
+  if (LOCAL_PROVIDERS.has(provider)) return "local";
+  return "providers";
 }
 
 let envPersistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -317,12 +415,50 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   noteFilesPath: readString("noteFilesPath", ""),
   isSignedIn: readBoolean("isSignedIn", false),
 
+  transcriptionMode: (() => {
+    const v = readString("transcriptionMode", "openwhispr");
+    if (v === "openwhispr" || v === "providers" || v === "local" || v === "self-hosted") return v;
+    return "openwhispr" as InferenceMode;
+  })(),
+  remoteTranscriptionType: (() => {
+    const v = readString("remoteTranscriptionType", "lan");
+    return v === "openai-compatible" ? "openai-compatible" : ("lan" as SelfHostedType);
+  })(),
+  remoteTranscriptionUrl: readString("remoteTranscriptionUrl", ""),
+  reasoningMode: (() => {
+    const v = readString("reasoningMode", "openwhispr");
+    if (v === "openwhispr" || v === "providers" || v === "local" || v === "self-hosted") return v;
+    return "openwhispr" as InferenceMode;
+  })(),
+  remoteReasoningType: (() => {
+    const v = readString("remoteReasoningType", "lan");
+    return v === "openai-compatible" ? "openai-compatible" : ("lan" as SelfHostedType);
+  })(),
+  remoteReasoningUrl: readString("remoteReasoningUrl", ""),
+
+  setTranscriptionMode: createStringSetter("transcriptionMode") as (mode: InferenceMode) => void,
+  setRemoteTranscriptionType: createStringSetter("remoteTranscriptionType") as (
+    type: SelfHostedType
+  ) => void,
+  setRemoteTranscriptionUrl: createStringSetter("remoteTranscriptionUrl"),
+  setReasoningMode: createStringSetter("reasoningMode") as (mode: InferenceMode) => void,
+  setRemoteReasoningType: createStringSetter("remoteReasoningType") as (
+    type: SelfHostedType
+  ) => void,
+  setRemoteReasoningUrl: createStringSetter("remoteReasoningUrl"),
+
   agentModel: readString("agentModel", "openai/gpt-oss-120b"),
   agentProvider: readString("agentProvider", "groq"),
   agentKey: readString("agentKey", ""),
   agentSystemPrompt: readString("agentSystemPrompt", ""),
   agentEnabled: readBoolean("agentEnabled", true),
   cloudAgentMode: readString("cloudAgentMode", "openwhispr"),
+  agentInferenceMode: (() => {
+    const v = readString("agentInferenceMode", "openwhispr");
+    if (v === "openwhispr" || v === "providers" || v === "local" || v === "self-hosted") return v;
+    return "openwhispr" as InferenceMode;
+  })(),
+  remoteAgentUrl: readString("remoteAgentUrl", ""),
 
   setUseLocalWhisper: createBooleanSetter("useLocalWhisper"),
   setWhisperModel: createStringSetter("whisperModel"),
@@ -343,8 +479,36 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setCloudReasoningBaseUrl: createStringSetter("cloudReasoningBaseUrl"),
   setAssemblyAiStreaming: createBooleanSetter("assemblyAiStreaming"),
   setUseReasoningModel: createBooleanSetter("useReasoningModel"),
-  setReasoningModel: createStringSetter("reasoningModel"),
-  setReasoningProvider: createStringSetter("reasoningProvider"),
+  setReasoningProvider: (value: string) => {
+    const mode = inferenceModeForProvider(value);
+    if (isBrowser) {
+      localStorage.setItem("reasoningProvider", value);
+      localStorage.setItem("reasoningMode", mode);
+      localStorage.setItem("cloudReasoningMode", "byok");
+    }
+    useSettingsStore.setState({
+      reasoningProvider: value,
+      reasoningMode: mode,
+      cloudReasoningMode: "byok",
+    });
+  },
+  setReasoningModel: (value: string) => {
+    if (isBrowser) localStorage.setItem("reasoningModel", value);
+    if (!value) {
+      useSettingsStore.setState({ reasoningModel: value });
+      return;
+    }
+    const mode = inferenceModeForProvider(useSettingsStore.getState().reasoningProvider);
+    if (isBrowser) {
+      localStorage.setItem("reasoningMode", mode);
+      localStorage.setItem("cloudReasoningMode", "byok");
+    }
+    useSettingsStore.setState({
+      reasoningModel: value,
+      reasoningMode: mode,
+      cloudReasoningMode: "byok",
+    });
+  },
 
   setCustomDictionary: (words: string[]) => {
     if (isBrowser) localStorage.setItem("customDictionary", JSON.stringify(words));
@@ -514,8 +678,36 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     set({ isSignedIn: value });
   },
 
-  setAgentModel: createStringSetter("agentModel"),
-  setAgentProvider: createStringSetter("agentProvider"),
+  setAgentModel: (value: string) => {
+    if (isBrowser) localStorage.setItem("agentModel", value);
+    if (!value) {
+      useSettingsStore.setState({ agentModel: value });
+      return;
+    }
+    const mode = inferenceModeForProvider(useSettingsStore.getState().agentProvider);
+    if (isBrowser) {
+      localStorage.setItem("agentInferenceMode", mode);
+      localStorage.setItem("cloudAgentMode", "byok");
+    }
+    useSettingsStore.setState({
+      agentModel: value,
+      agentInferenceMode: mode,
+      cloudAgentMode: "byok",
+    });
+  },
+  setAgentProvider: (value: string) => {
+    const mode = inferenceModeForProvider(value);
+    if (isBrowser) {
+      localStorage.setItem("agentProvider", value);
+      localStorage.setItem("agentInferenceMode", mode);
+      localStorage.setItem("cloudAgentMode", "byok");
+    }
+    useSettingsStore.setState({
+      agentProvider: value,
+      agentInferenceMode: mode,
+      cloudAgentMode: "byok",
+    });
+  },
   setAgentKey: (key: string) => {
     if (!isBrowser) {
       useSettingsStore.setState({ agentKey: key });
@@ -559,6 +751,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setAgentSystemPrompt: createStringSetter("agentSystemPrompt"),
   setAgentEnabled: createBooleanSetter("agentEnabled"),
   setCloudAgentMode: createStringSetter("cloudAgentMode"),
+  setAgentInferenceMode: createStringSetter("agentInferenceMode") as (mode: InferenceMode) => void,
+  setRemoteAgentUrl: createStringSetter("remoteAgentUrl"),
 
   updateTranscriptionSettings: (settings: Partial<TranscriptionSettings>) => {
     const s = useSettingsStore.getState();
@@ -711,15 +905,34 @@ export async function initializeSettings(): Promise<void> {
       );
     }
 
-    // Sync dictation key from main process
+    // Sync dictation key from main process.
+    // localStorage holds the user's preferred hotkey. Only populate from .env
+    // when localStorage is empty (fresh install / cleared data).
     try {
-      const envKey = await window.electronAPI.getDictationKey?.();
-      if (envKey && envKey !== state.dictationKey) {
-        createStringSetter("dictationKey")(envKey);
+      if (!state.dictationKey) {
+        const envKey = await window.electronAPI.getDictationKey?.();
+        if (envKey) {
+          createStringSetter("dictationKey")(envKey);
+        }
       }
     } catch (err) {
       logger.warn(
         "Failed to sync dictation key on startup",
+        { error: (err as Error).message },
+        "settings"
+      );
+    }
+
+    // Show the active hotkey in UI (zustand only, not localStorage).
+    // May return constructor default during early startup; corrected by dictation-key-active event later.
+    try {
+      const activeKey = await window.electronAPI?.getActiveDictationKey?.();
+      if (activeKey) {
+        useSettingsStore.setState({ dictationKey: activeKey });
+      }
+    } catch (err) {
+      logger.warn(
+        "Failed to sync active dictation key on startup",
         { error: (err as Error).message },
         "settings"
       );
@@ -855,6 +1068,11 @@ export async function initializeSettings(): Promise<void> {
     if (key === "uiLanguage" && typeof value === "string") {
       void i18n.changeLanguage(value);
     }
+  });
+
+  // Active hotkey updates from backend — zustand only, not localStorage.
+  window.electronAPI?.onDictationKeyActive?.((key: string) => {
+    useSettingsStore.setState({ dictationKey: key });
   });
 
   // Sync settings pushed from main process (e.g., hotkey changed in control panel)
