@@ -1,11 +1,13 @@
-import { Globe, Download, Trash2, X } from "lucide-react";
+import { Globe, Download, Trash2, X, ExternalLink } from "lucide-react";
 import { Button } from "./button";
 import type { ColorScheme } from "../../utils/modelPickerStyles";
+import { createExternalLinkHandler } from "../../utils/externalLinks";
 
 export interface ModelCardOption {
   value: string;
   label: string;
   description?: string;
+  specUrl?: string;
   icon?: string;
   invertInDark?: boolean;
   // Local model properties (optional)
@@ -151,6 +153,16 @@ export default function ModelCardList({
                 <span className="text-xs text-muted-foreground/50 tabular-nums shrink-0">
                   {model.description}
                 </span>
+              )}
+              {model.specUrl && (
+                <a
+                  href={model.specUrl}
+                  onClick={createExternalLinkHandler(model.specUrl)}
+                  className="inline-flex items-center gap-0.5 text-xs text-primary/60 hover:text-primary transition-colors shrink-0"
+                >
+                  Specs
+                  <ExternalLink size={9} />
+                </a>
               )}
 
               {/* Recommended badge */}
