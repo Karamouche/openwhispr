@@ -38,6 +38,7 @@ class GladiaStreaming {
     this.isConnected = false;
     this.accumulatedText = "";
     this.finalSegments = [];
+    this.completedSegments = [];
     this.onPartialTranscript = null;
     this.onFinalTranscript = null;
     this.onError = null;
@@ -58,8 +59,9 @@ class GladiaStreaming {
         const trimmed = text.trim();
         if (trimmed) {
           this.finalSegments.push(trimmed);
+          this.completedSegments.push(trimmed);
           this.accumulatedText = this.finalSegments.join(" ");
-          this.onFinalTranscript?.(this.accumulatedText);
+          this.onFinalTranscript?.(this.accumulatedText, Date.now());
           debugLogger.debug("Gladia final transcript", { text: trimmed.slice(0, 100) });
         }
       } else {
@@ -157,6 +159,7 @@ class GladiaStreaming {
 
     this.accumulatedText = "";
     this.finalSegments = [];
+    this.completedSegments = [];
 
     let session;
     const warmStatus = this.warmSession?.status;
@@ -240,6 +243,7 @@ class GladiaStreaming {
     this.isConnected = false;
     this.accumulatedText = "";
     this.finalSegments = [];
+    this.completedSegments = [];
   }
 
   cleanupAll() {

@@ -3681,6 +3681,37 @@ class IPCHandlers {
       return win;
     };
 
+    const connectGladiaStreaming = async (event, options) => {
+      if (this._meetingMicStreaming?.isConnected) {
+        await this._meetingMicStreaming.disconnect();
+      }
+      if (this._meetingSystemStreaming?.isConnected) {
+        await this._meetingSystemStreaming.disconnect();
+      }
+      this._meetingMicStreaming = null;
+      this._meetingSystemStreaming = null;
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const apiKey = this.environmentManager.getGladiaKey();
+      const connectOpts = { apiKey, language: options.language };
+
+      const { mode: systemAudioMode } = await getMeetingSystemAudioPlan();
+      const pairs =
+        systemAudioMode !== "unsupported"
+          ? [
+              { ref: "_meetingMicStreaming", source: "mic" },
+              { ref: "_meetingSystemStreaming", source: "system" },
+            ]
+          : [{ ref: "_meetingMicStreaming", source: "mic" }];
+
+      for (const { ref, source } of pairs) {
+        this[ref] = new GladiaStreaming();
+        attachMeetingStreamingHandlers(this[ref], win, source);
+      }
+
+      await Promise.all(pairs.map(({ ref }) => this[ref].connect(connectOpts)));
+      return win;
+    };
+
     const MEETING_MIC_REFERENCE_ALIGNMENT_MS = 320;
     let meetingSendCounts = { mic: 0, system: 0 };
     const meetingEchoLeakDetector = new MeetingEchoLeakDetector();
@@ -3696,7 +3727,6 @@ class IPCHandlers {
     let meetingReclusterTimer = null;
 
     let meetingLocalMode = false;
-    let meetingGladiaAsyncMode = false;
     let meetingLocalBuffers = { mic: [], system: [] };
     let meetingLocalTimer = null;
     let meetingLocalWin = null;
@@ -4152,7 +4182,6 @@ class IPCHandlers {
       meetingOneOnOneAttendee = null;
       meetingOneOnOneProfileBound = false;
       meetingLocalMode = false;
-      meetingGladiaAsyncMode = false;
       meetingLocalBuffers = { mic: [], system: [] };
       if (meetingDiarizationStream) {
         meetingDiarizationStream.end();
@@ -4328,11 +4357,11 @@ class IPCHandlers {
         return { success: false, error: "Operation in progress" };
       }
 
-      if (options.provider === "local" || options.provider === "gladia-async") {
+      if (options.provider === "local") {
         return { success: true };
       }
 
-      if (options.provider !== "openai-realtime") {
+      if (options.provider !== "openai-realtime" && options.provider !== "gladia-realtime") {
         return { success: false, error: `Unsupported provider: ${options.provider}` };
       }
 
@@ -4346,7 +4375,11 @@ class IPCHandlers {
       meetingTranscriptionPrepareInProgress = true;
       meetingTranscriptionPreparePromise = (async () => {
         try {
-          await connectRealtimeStreaming(event, options);
+          const connect =
+            options.provider === "gladia-realtime"
+              ? connectGladiaStreaming
+              : connectRealtimeStreaming;
+          await connect(event, options);
           debugLogger.debug("Meeting transcription prepared (meeting streams warm)");
           return { success: true };
         } catch (error) {
@@ -4447,40 +4480,13 @@ class IPCHandlers {
           };
         }
 
-        if (options.provider === "gladia-async") {
-          meetingLocalMode = true;
-          meetingGladiaAsyncMode = true;
-          meetingLocalWin = BrowserWindow.fromWebContents(event.sender);
-          meetingLocalBuffers = { mic: [], system: [] };
-
-          await startLiveSpeakerIdentification(meetingLocalWin, systemAudioMode);
-          await startMeetingAec(systemAudioMode);
-
-          systemAudioStrategy = await startMeetingSystemAudio(
-            event,
-            systemAudioMode,
-            systemAudioStrategy,
-            "in gladia-async meeting mode"
-          );
-
-          debugLogger.debug("Meeting transcription started in gladia-async mode", {
-            systemAudioMode,
-            systemAudioStrategy,
-          });
-
-          return {
-            success: true,
-            systemAudioMode,
-            systemAudioStrategy,
-            oneOnOneAttendee: meetingOneOnOneAttendee,
-          };
-        }
-
-        if (options.provider !== "openai-realtime") {
+        if (options.provider !== "openai-realtime" && options.provider !== "gladia-realtime") {
           return { success: false, error: `Unsupported provider: ${options.provider}` };
         }
 
-        await connectRealtimeStreaming(event, options);
+        const connect =
+          options.provider === "gladia-realtime" ? connectGladiaStreaming : connectRealtimeStreaming;
+        await connect(event, options);
         const realtimeWin = BrowserWindow.fromWebContents(event.sender);
         await startLiveSpeakerIdentification(realtimeWin, systemAudioMode);
         await startMeetingAec(systemAudioMode);
@@ -4643,77 +4649,6 @@ class IPCHandlers {
 
         const diarizationSessionId = `diar-${Date.now()}`;
         const diarizationWin = meetingLocalWin || this.windowManager.controlPanelWindow;
-
-        if (meetingGladiaAsyncMode) {
-          const { GladiaClient } = require("@gladiaio/sdk");
-          const os = require("os");
-          const apiKey = this.environmentManager.getGladiaKey();
-          flushPendingMicFinals(true);
-          const { diarizationPcmPath, diarizationSegments, diarizationStartedAt } =
-            await captureMeetingDiarizationState();
-
-          let transcript = "";
-          try {
-            const micPcm = Buffer.concat(meetingLocalBuffers.mic);
-            const sysPcm = Buffer.concat(meetingLocalBuffers.system);
-            const hasMic = micPcm.length > 0;
-            const hasSys = sysPcm.length > 0;
-            if (hasMic || hasSys) {
-              // Build a mono WAV from whichever channel has audio (prefer mic+system stereo)
-              let wavBuffer;
-              if (hasMic && hasSys) {
-                // Interleave mic and system into stereo 16kHz PCM
-                const len = Math.max(micPcm.length, sysPcm.length);
-                const stereo = Buffer.alloc(len * 2);
-                for (let i = 0; i < len / 2; i++) {
-                  const m = i * 2 < micPcm.length ? micPcm.readInt16LE(i * 2) : 0;
-                  const s = i * 2 < sysPcm.length ? sysPcm.readInt16LE(i * 2) : 0;
-                  stereo.writeInt16LE(m, i * 4);
-                  stereo.writeInt16LE(s, i * 4 + 2);
-                }
-                wavBuffer = pcm16ToWav(stereo, 16000, 2);
-              } else {
-                const mono = hasMic ? micPcm : sysPcm;
-                wavBuffer = pcm16ToWav(mono, 16000, 1);
-              }
-              const tmpPath = path.join(os.tmpdir(), `ow-gladia-async-${Date.now()}.wav`);
-              await require("fs/promises").writeFile(tmpPath, wavBuffer);
-              try {
-                const client = new GladiaClient({ apiKey });
-                const result = await client.preRecorded().transcribeUntyped(tmpPath, {
-                  diarization: hasMic && hasSys,
-                  language_config: { code_switching: true },
-                });
-                transcript =
-                  result?.result?.transcription?.full_transcript ||
-                  result?.result?.transcription?.utterances?.map((u) => u.text).join(" ") ||
-                  "";
-                debugLogger.debug("Gladia async meeting transcript", {
-                  length: transcript.length,
-                });
-              } finally {
-                require("fs/promises")
-                  .unlink(tmpPath)
-                  .catch(() => {});
-              }
-            }
-          } catch (err) {
-            debugLogger.error("Gladia async meeting transcription failed", { error: err.message });
-          }
-
-          resetMeetingLocalState();
-
-          this._startOrSkipDiarization(
-            diarizationSessionId,
-            diarizationPcmPath,
-            diarizationStartedAt,
-            diarizationSegments,
-            diarizationWin,
-            liveSpeakerState
-          );
-
-          return { success: true, transcript, diarizationSessionId };
-        }
 
         if (meetingLocalMode) {
           if (meetingLocalTimer) {

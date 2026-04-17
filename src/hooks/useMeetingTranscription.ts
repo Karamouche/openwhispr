@@ -128,7 +128,7 @@ const getMeetingTranscriptionOptions = () => {
   }
 
   if (cloudTranscriptionProvider === "gladia") {
-    return { provider: "gladia-async" as const };
+    return { provider: "gladia-realtime" as const };
   }
 
   const model = REALTIME_MODELS.has(cloudTranscriptionModel)
