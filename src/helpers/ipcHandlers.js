@@ -205,6 +205,27 @@ class IPCHandlers {
     return map;
   }
 
+  _resolveOneOnOneOtherParticipant(participantsJson) {
+    if (!participantsJson) return null;
+    let participants;
+    try {
+      participants = JSON.parse(participantsJson);
+    } catch (_) {
+      return null;
+    }
+    if (!Array.isArray(participants) || participants.length === 0) return null;
+    const googleEmails = new Set(
+      this.databaseManager.getGoogleAccounts().map((a) => a.email.toLowerCase())
+    );
+    const isSelf = (p) => p.self === true || googleEmails.has((p.email || "").toLowerCase());
+    const others = participants.filter((p) => !isSelf(p));
+    if (others.length !== 1) return null;
+    const displayName = others[0].displayName || others[0].email;
+    if (!displayName) return null;
+    const email = (others[0].email || "").toLowerCase().trim() || null;
+    return { displayName, email };
+  }
+
   _rebuildMirror(basePath) {
     const markdownMirror = require("./markdownMirror");
     if (basePath) markdownMirror.init(basePath);
@@ -3683,33 +3704,14 @@ class IPCHandlers {
     const shouldSuppressMicTranscriptSegment = (startedAt, endedAt = Date.now()) =>
       meetingEchoLeakDetector.shouldSuppressMicSegment(startedAt, endedAt);
 
-    const resolveOneOnOneAttendee = () => {
+    const resolveOneOnOneAttendeeForNote = (noteId) => {
+      if (!noteId) return null;
       try {
-        const activeEvents = this.databaseManager.getActiveEvents();
-        if (!activeEvents.length) return null;
-
-        const googleEmails = new Set(
-          this.databaseManager.getGoogleAccounts().map((a) => a.email.toLowerCase())
-        );
-        const isSelf = (p) => p.self === true || googleEmails.has((p.email || "").toLowerCase());
-
-        for (const event of activeEvents) {
-          let attendees;
-          try {
-            attendees = JSON.parse(event.attendees || "[]");
-          } catch (_) {
-            continue;
-          }
-          if (!Array.isArray(attendees)) continue;
-
-          const others = attendees.filter((a) => !isSelf(a));
-          if (others.length === 1) {
-            const displayName = others[0].displayName || others[0].email;
-            if (displayName) return { displayName, email: others[0].email || null };
-          }
-        }
-      } catch (_) {}
-      return null;
+        const note = this.databaseManager.getNote(noteId);
+        return this._resolveOneOnOneOtherParticipant(note?.participants);
+      } catch (_) {
+        return null;
+      }
     };
 
     const bindOneOnOneAttendeeToSpeaker = (speakerId) => {
@@ -4365,7 +4367,7 @@ class IPCHandlers {
         const systemAudioPlan = await getMeetingSystemAudioPlan();
         let { mode: systemAudioMode, strategy: systemAudioStrategy } = systemAudioPlan;
         meetingEchoLeakDetector.reset();
-        meetingOneOnOneAttendee = resolveOneOnOneAttendee();
+        meetingOneOnOneAttendee = resolveOneOnOneAttendeeForNote(options.noteId);
         meetingOneOnOneProfileBound = false;
 
         if (systemAudioMode === "unsupported" && this._meetingSystemStreaming?.isConnected) {
@@ -6701,27 +6703,9 @@ class IPCHandlers {
     setImmediate(async () => {
       try {
         const note = this.databaseManager.getNote(noteId);
-        if (!note?.participants) return;
-
-        let participants;
-        try {
-          participants = JSON.parse(note.participants);
-        } catch (_) {
-          return;
-        }
-        if (!Array.isArray(participants) || participants.length === 0) return;
-
-        const googleEmails = new Set(
-          this.databaseManager.getGoogleAccounts().map((a) => a.email.toLowerCase())
-        );
-        const isSelf = (p) => p.self === true || googleEmails.has((p.email || "").toLowerCase());
-        const otherParticipants = participants.filter((p) => !isSelf(p));
-        if (otherParticipants.length !== 1) return;
-
-        const other = otherParticipants[0];
-        const displayName = other.displayName || other.email;
-        if (!displayName) return;
-        const email = (other.email || "").toLowerCase().trim() || null;
+        const other = this._resolveOneOnOneOtherParticipant(note?.participants);
+        if (!other) return;
+        const { displayName, email } = other;
 
         const embeddings = this.databaseManager.getNoteSpeakerEmbeddings(noteId);
         if (!embeddings.length) return;

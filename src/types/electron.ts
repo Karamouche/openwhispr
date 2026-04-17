@@ -1371,6 +1371,7 @@ declare global {
         provider?: string;
         model?: string;
         language?: string;
+        noteId?: number | null;
       }) => Promise<{
         success: boolean;
         error?: string;
