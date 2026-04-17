@@ -2224,6 +2224,102 @@ class IPCHandlers {
       return this.environmentManager.saveCustomReasoningKey(key);
     });
 
+    // Enterprise provider key handlers
+    ipcMain.handle("get-bedrock-access-key-id", async () => {
+      return this.environmentManager.getBedrockAccessKeyId();
+    });
+    ipcMain.handle("save-bedrock-access-key-id", async (event, key) => {
+      return this.environmentManager.saveBedrockAccessKeyId(key);
+    });
+    ipcMain.handle("get-bedrock-secret-access-key", async () => {
+      return this.environmentManager.getBedrockSecretAccessKey();
+    });
+    ipcMain.handle("save-bedrock-secret-access-key", async (event, key) => {
+      return this.environmentManager.saveBedrockSecretAccessKey(key);
+    });
+    ipcMain.handle("get-bedrock-session-token", async () => {
+      return this.environmentManager.getBedrockSessionToken();
+    });
+    ipcMain.handle("save-bedrock-session-token", async (event, key) => {
+      return this.environmentManager.saveBedrockSessionToken(key);
+    });
+    ipcMain.handle("get-azure-api-key", async () => {
+      return this.environmentManager.getAzureApiKey();
+    });
+    ipcMain.handle("save-azure-api-key", async (event, key) => {
+      return this.environmentManager.saveAzureApiKey(key);
+    });
+    ipcMain.handle("get-vertex-api-key", async () => {
+      return this.environmentManager.getVertexApiKey();
+    });
+    ipcMain.handle("save-vertex-api-key", async (event, key) => {
+      return this.environmentManager.saveVertexApiKey(key);
+    });
+
+    // Enterprise provider test connection
+    ipcMain.handle("test-enterprise-connection", async (event, provider, config) => {
+      const { mapEnterpriseError } = require("./enterpriseProviderErrors");
+      try {
+        // SSRF guard: block non-HTTPS and private/metadata endpoints
+        if (config.azureEndpoint) {
+          const url = new URL(config.azureEndpoint);
+          if (url.protocol !== "https:") {
+            return { success: false, error: "Endpoint must use HTTPS." };
+          }
+          const hostname = url.hostname.toLowerCase();
+          if (
+            hostname === "localhost" ||
+            hostname === "169.254.169.254" ||
+            hostname === "metadata.google.internal" ||
+            hostname.startsWith("10.") ||
+            hostname.startsWith("192.168.") ||
+            hostname.startsWith("127.")
+          ) {
+            return { success: false, error: "Private/metadata endpoints are not allowed." };
+          }
+        }
+
+        const { generateText } = require("ai");
+        const { getAIModel } = require("../services/ai/providers");
+
+        const enterprise = {
+          bedrockRegion: config.bedrockRegion,
+          bedrockProfile: config.bedrockProfile,
+          bedrockAccessKeyId: config.bedrockAccessKeyId,
+          bedrockSecretAccessKey: config.bedrockSecretAccessKey,
+          bedrockSessionToken: config.bedrockSessionToken,
+          azureEndpoint: config.azureEndpoint,
+          azureApiVersion: config.azureApiVersion,
+          vertexProject: config.vertexProject,
+          vertexLocation: config.vertexLocation,
+        };
+
+        const model = getAIModel(
+          provider,
+          config.model || "test",
+          config.apiKey || "",
+          undefined,
+          enterprise
+        );
+
+        await generateText({
+          model,
+          prompt: "Say hello in one word.",
+          maxTokens: 10,
+        });
+
+        return { success: true };
+      } catch (err) {
+        const mapped = mapEnterpriseError(provider, err, config);
+        return {
+          success: false,
+          error: mapped.message,
+          action: mapped.action,
+          copyCommand: mapped.copyCommand,
+        };
+      }
+    });
+
     ipcMain.handle("get-dictation-key", async () => {
       return this.environmentManager.getDictationKey();
     });

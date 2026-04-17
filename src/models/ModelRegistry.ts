@@ -48,6 +48,10 @@ export interface CloudProviderData {
   models: CloudModelDefinition[];
 }
 
+export interface EnterpriseProviderData extends CloudProviderData {
+  allowCustomModelId: boolean;
+}
+
 export interface TranscriptionModelDefinition {
   id: string;
   name: string;
@@ -101,6 +105,7 @@ interface ModelRegistryData {
   whisperModels: WhisperModelsMap;
   transcriptionProviders: TranscriptionProviderData[];
   cloudProviders: CloudProviderData[];
+  enterpriseProviders: EnterpriseProviderData[];
   localProviders: LocalProviderData[];
 }
 
@@ -163,6 +168,10 @@ class ModelRegistry {
     return modelData.cloudProviders;
   }
 
+  getEnterpriseProviders(): EnterpriseProviderData[] {
+    return modelData.enterpriseProviders;
+  }
+
   getTranscriptionProviders(): TranscriptionProviderData[] {
     return modelData.transcriptionProviders;
   }
@@ -218,6 +227,18 @@ function buildReasoningProviders(): ReasoningProviders {
     };
   }
 
+  for (const ep of modelRegistry.getEnterpriseProviders()) {
+    providers[ep.id] = {
+      name: ep.name,
+      models: ep.models.map((m) => ({
+        value: m.id,
+        label: m.name,
+        description: m.description,
+        descriptionKey: m.descriptionKey,
+      })),
+    };
+  }
+
   providers.local = {
     name: "Local AI",
     models: modelRegistry.getAllModels().map((model) => ({
@@ -253,13 +274,22 @@ export function getReasoningModelLabel(modelId: string): string {
   return model?.fullLabel || modelId;
 }
 
+const ENTERPRISE_PROVIDER_IDS = ["bedrock", "azure", "vertex"];
+
 export function getModelProvider(modelId: string): string {
   if (isCloudReasoningMode()) {
     return "openwhispr";
   }
 
-  if (getSettings().reasoningProvider === "custom") {
+  const storedProvider = getSettings().reasoningProvider;
+
+  if (storedProvider === "custom") {
     return "custom";
+  }
+
+  // Enterprise providers are authoritative — don't fall through to heuristic matching
+  if (ENTERPRISE_PROVIDER_IDS.includes(storedProvider)) {
+    return storedProvider;
   }
 
   const model = getAllReasoningModels().find((m) => m.value === modelId);
@@ -323,6 +353,10 @@ export const WHISPER_MODEL_INFO = modelData.whisperModels;
 
 export function getCloudModel(modelId: string): CloudModelDefinition | undefined {
   for (const provider of modelData.cloudProviders) {
+    const model = provider.models.find((m) => m.id === modelId);
+    if (model) return model;
+  }
+  for (const provider of modelData.enterpriseProviders) {
     const model = provider.models.find((m) => m.id === modelId);
     if (model) return model;
   }

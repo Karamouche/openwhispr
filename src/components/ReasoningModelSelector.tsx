@@ -13,10 +13,13 @@ import ApiKeyInput from "./ui/ApiKeyInput";
 import ModelCardList from "./ui/ModelCardList";
 import LocalModelPicker, { type LocalProvider } from "./LocalModelPicker";
 import { ProviderTabs } from "./ui/ProviderTabs";
+import EnterpriseProviderConfig from "./EnterpriseProviderConfig";
 import { API_ENDPOINTS, buildApiUrl, normalizeBaseUrl } from "../config/constants";
 import logger from "../utils/logger";
 import { REASONING_PROVIDERS } from "../models/ModelRegistry";
 import { modelRegistry } from "../models/ModelRegistry";
+import { useSettingsStore } from "../stores/settingsStore";
+import { Building2 } from "lucide-react";
 import { getProviderIcon, isMonochromeProvider } from "../utils/providerIcons";
 import { isSecureEndpoint } from "../utils/urlUtils";
 import { createExternalLinkHandler } from "../utils/externalLinks";
@@ -995,6 +998,111 @@ export default function ReasoningModelSelector({
           <GpuStatusBadge />
         </>
       )}
+
+      <EnterpriseSection
+        reasoningModel={reasoningModel}
+        setReasoningModel={setReasoningModel}
+        setLocalReasoningProvider={setLocalReasoningProvider}
+      />
+    </div>
+  );
+}
+
+const ENTERPRISE_PROVIDER_TABS = [
+  { id: "bedrock", name: "AWS Bedrock" },
+  { id: "azure", name: "Azure OpenAI" },
+  { id: "vertex", name: "Vertex AI" },
+];
+
+function EnterpriseSection({
+  reasoningModel,
+  setReasoningModel,
+  setLocalReasoningProvider,
+}: {
+  reasoningModel: string;
+  setReasoningModel: (m: string) => void;
+  setLocalReasoningProvider: (p: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [selectedEnterprise, setSelectedEnterprise] = useState("");
+  const store = useSettingsStore();
+
+  const handleEnterpriseSelect = (providerId: string) => {
+    if (selectedEnterprise === providerId) {
+      setSelectedEnterprise("");
+      return;
+    }
+    setSelectedEnterprise(providerId);
+    setLocalReasoningProvider(providerId);
+
+    const providerData = REASONING_PROVIDERS[providerId];
+    if (providerData?.models?.length) {
+      setReasoningModel(providerData.models[0].value);
+    } else if (providerId === "azure" && store.azureDeploymentName) {
+      setReasoningModel(store.azureDeploymentName);
+    }
+  };
+
+  return (
+    <div className="space-y-2 pt-3 border-t border-border">
+      <div className="flex items-center gap-1.5">
+        <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          {t("reasoning.enterprise.title", { defaultValue: "Enterprise Providers" })}
+        </h3>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {t("reasoning.enterprise.description", {
+          defaultValue: "Connect to cloud providers using your organization's credentials.",
+        })}
+      </p>
+
+      <div className="border border-border rounded-lg overflow-hidden">
+        <ProviderTabs
+          providers={ENTERPRISE_PROVIDER_TABS}
+          selectedId={selectedEnterprise}
+          onSelect={handleEnterpriseSelect}
+          colorScheme="purple"
+        />
+
+        {selectedEnterprise && (
+          <div className="p-3">
+            <EnterpriseProviderConfig
+              provider={selectedEnterprise as "bedrock" | "azure" | "vertex"}
+              reasoningModel={reasoningModel}
+              setReasoningModel={setReasoningModel}
+              bedrockAuthMode={store.bedrockAuthMode}
+              setBedrockAuthMode={store.setBedrockAuthMode}
+              bedrockRegion={store.bedrockRegion}
+              setBedrockRegion={store.setBedrockRegion}
+              bedrockProfile={store.bedrockProfile}
+              setBedrockProfile={store.setBedrockProfile}
+              bedrockAccessKeyId={store.bedrockAccessKeyId}
+              setBedrockAccessKeyId={store.setBedrockAccessKeyId}
+              bedrockSecretAccessKey={store.bedrockSecretAccessKey}
+              setBedrockSecretAccessKey={store.setBedrockSecretAccessKey}
+              bedrockSessionToken={store.bedrockSessionToken}
+              setBedrockSessionToken={store.setBedrockSessionToken}
+              azureEndpoint={store.azureEndpoint}
+              setAzureEndpoint={store.setAzureEndpoint}
+              azureApiKey={store.azureApiKey}
+              setAzureApiKey={store.setAzureApiKey}
+              azureDeploymentName={store.azureDeploymentName}
+              setAzureDeploymentName={store.setAzureDeploymentName}
+              azureApiVersion={store.azureApiVersion}
+              setAzureApiVersion={store.setAzureApiVersion}
+              vertexAuthMode={store.vertexAuthMode}
+              setVertexAuthMode={store.setVertexAuthMode}
+              vertexProject={store.vertexProject}
+              setVertexProject={store.setVertexProject}
+              vertexLocation={store.vertexLocation}
+              setVertexLocation={store.setVertexLocation}
+              vertexApiKey={store.vertexApiKey}
+              setVertexApiKey={store.setVertexApiKey}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

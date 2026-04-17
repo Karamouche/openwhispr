@@ -832,6 +832,22 @@ declare global {
       getCustomReasoningKey?: () => Promise<string | null>;
       saveCustomReasoningKey?: (key: string) => Promise<void>;
 
+      // Enterprise provider key persistence
+      getBedrockAccessKeyId?: () => Promise<string | null>;
+      saveBedrockAccessKeyId?: (key: string) => Promise<void>;
+      getBedrockSecretAccessKey?: () => Promise<string | null>;
+      saveBedrockSecretAccessKey?: (key: string) => Promise<void>;
+      getBedrockSessionToken?: () => Promise<string | null>;
+      saveBedrockSessionToken?: (key: string) => Promise<void>;
+      getAzureApiKey?: () => Promise<string | null>;
+      saveAzureApiKey?: (key: string) => Promise<void>;
+      getVertexApiKey?: () => Promise<string | null>;
+      saveVertexApiKey?: (key: string) => Promise<void>;
+      testEnterpriseConnection?: (
+        provider: string,
+        config: Record<string, string>
+      ) => Promise<{ success: boolean; error?: string; action?: string; copyCommand?: string }>;
+
       // Dictation key persistence (file-based for reliable startup)
       getDictationKey?: () => Promise<string | null>;
       getActiveDictationKey?: () => Promise<string>;

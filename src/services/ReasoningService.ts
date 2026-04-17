@@ -486,6 +486,15 @@ class ReasoningService extends BaseReasoningService {
       timestamp: new Date().toISOString(),
     });
 
+    // Persist input for retry on enterprise auth failures
+    const isEnterprise = ["bedrock", "azure", "vertex"].includes(provider);
+    if (isEnterprise && typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem(
+        "pendingReasoningInput",
+        JSON.stringify({ text, model: trimmedModel, agentName, config })
+      );
+    }
+
     try {
       let result: string;
       const startTime = Date.now();
@@ -538,6 +547,11 @@ class ReasoningService extends BaseReasoningService {
         resultPreview: result.substring(0, 100) + (result.length > 100 ? "..." : ""),
       });
 
+      // Clear persisted input on success
+      if (isEnterprise && typeof sessionStorage !== "undefined") {
+        sessionStorage.removeItem("pendingReasoningInput");
+      }
+
       return result;
     } catch (error) {
       logger.logReasoning("PROVIDER_ERROR", {
@@ -546,6 +560,22 @@ class ReasoningService extends BaseReasoningService {
         error: (error as Error).message,
         stack: (error as Error).stack,
       });
+
+      // For enterprise providers, mark auth errors as retryable (input is preserved in sessionStorage)
+      if (isEnterprise) {
+        const msg = (error as Error).message || "";
+        const isAuthError =
+          msg.includes("ExpiredToken") ||
+          msg.includes("UNAUTHENTICATED") ||
+          msg.includes("Unauthorized") ||
+          msg.includes("expired") ||
+          msg.includes("Could not load the default credentials");
+        if (isAuthError) {
+          const enhanced = error as Error & { retryable?: boolean };
+          enhanced.retryable = true;
+        }
+      }
+
       throw error;
     }
   }

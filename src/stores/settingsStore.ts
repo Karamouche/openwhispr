@@ -230,6 +230,36 @@ export interface SettingsState
   setCustomTranscriptionApiKey: (key: string) => void;
   setCustomReasoningApiKey: (key: string) => void;
 
+  // Enterprise providers
+  bedrockAuthMode: string;
+  bedrockRegion: string;
+  bedrockProfile: string;
+  bedrockAccessKeyId: string;
+  bedrockSecretAccessKey: string;
+  bedrockSessionToken: string;
+  azureEndpoint: string;
+  azureApiKey: string;
+  azureDeploymentName: string;
+  azureApiVersion: string;
+  vertexAuthMode: string;
+  vertexProject: string;
+  vertexLocation: string;
+  vertexApiKey: string;
+  setBedrockAuthMode: (value: string) => void;
+  setBedrockRegion: (value: string) => void;
+  setBedrockProfile: (value: string) => void;
+  setBedrockAccessKeyId: (key: string) => void;
+  setBedrockSecretAccessKey: (key: string) => void;
+  setBedrockSessionToken: (key: string) => void;
+  setAzureEndpoint: (value: string) => void;
+  setAzureApiKey: (key: string) => void;
+  setAzureDeploymentName: (value: string) => void;
+  setAzureApiVersion: (value: string) => void;
+  setVertexAuthMode: (value: string) => void;
+  setVertexProject: (value: string) => void;
+  setVertexLocation: (value: string) => void;
+  setVertexApiKey: (key: string) => void;
+
   setDictationKey: (key: string) => void;
   setMeetingKey: (key: string) => void;
   setActivationMode: (mode: "tap" | "push") => void;
@@ -366,6 +396,22 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   mistralApiKey: readString("mistralApiKey", ""),
   customTranscriptionApiKey: readString("customTranscriptionApiKey", ""),
   customReasoningApiKey: readString("customReasoningApiKey", ""),
+
+  // Enterprise providers
+  bedrockAuthMode: readString("bedrockAuthMode", "sso"),
+  bedrockRegion: readString("bedrockRegion", "us-east-1"),
+  bedrockProfile: readString("bedrockProfile", ""),
+  bedrockAccessKeyId: readString("bedrockAccessKeyId", ""),
+  bedrockSecretAccessKey: readString("bedrockSecretAccessKey", ""),
+  bedrockSessionToken: readString("bedrockSessionToken", ""),
+  azureEndpoint: readString("azureEndpoint", ""),
+  azureApiKey: readString("azureApiKey", ""),
+  azureDeploymentName: readString("azureDeploymentName", ""),
+  azureApiVersion: readString("azureApiVersion", "2024-10-21"),
+  vertexAuthMode: readString("vertexAuthMode", "adc"),
+  vertexProject: readString("vertexProject", ""),
+  vertexLocation: readString("vertexLocation", "us-central1"),
+  vertexApiKey: readString("vertexApiKey", ""),
 
   dictationKey: readString("dictationKey", ""),
   meetingKey: readString("meetingKey", ""),
@@ -587,6 +633,81 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     set({ customReasoningApiKey: key });
     window.electronAPI?.saveCustomReasoningKey?.(key);
     invalidateApiKeyCaches("custom");
+  },
+
+  // Enterprise provider setters
+  setBedrockAuthMode: (value: string) => {
+    if (isBrowser) localStorage.setItem("bedrockAuthMode", value);
+    set({ bedrockAuthMode: value });
+  },
+  setBedrockRegion: (value: string) => {
+    if (isBrowser) localStorage.setItem("bedrockRegion", value);
+    set({ bedrockRegion: value });
+    debouncedPersistToEnv();
+  },
+  setBedrockProfile: (value: string) => {
+    if (isBrowser) localStorage.setItem("bedrockProfile", value);
+    set({ bedrockProfile: value });
+    debouncedPersistToEnv();
+  },
+  setBedrockAccessKeyId: (key: string) => {
+    if (isBrowser) localStorage.setItem("bedrockAccessKeyId", key);
+    set({ bedrockAccessKeyId: key });
+    window.electronAPI?.saveBedrockAccessKeyId?.(key);
+    debouncedPersistToEnv();
+  },
+  setBedrockSecretAccessKey: (key: string) => {
+    if (isBrowser) localStorage.setItem("bedrockSecretAccessKey", key);
+    set({ bedrockSecretAccessKey: key });
+    window.electronAPI?.saveBedrockSecretAccessKey?.(key);
+    debouncedPersistToEnv();
+  },
+  setBedrockSessionToken: (key: string) => {
+    if (isBrowser) localStorage.setItem("bedrockSessionToken", key);
+    set({ bedrockSessionToken: key });
+    window.electronAPI?.saveBedrockSessionToken?.(key);
+    debouncedPersistToEnv();
+  },
+  setAzureEndpoint: (value: string) => {
+    if (isBrowser) localStorage.setItem("azureEndpoint", value);
+    set({ azureEndpoint: value });
+    debouncedPersistToEnv();
+  },
+  setAzureApiKey: (key: string) => {
+    if (isBrowser) localStorage.setItem("azureApiKey", key);
+    set({ azureApiKey: key });
+    window.electronAPI?.saveAzureApiKey?.(key);
+    debouncedPersistToEnv();
+  },
+  setAzureDeploymentName: (value: string) => {
+    if (isBrowser) localStorage.setItem("azureDeploymentName", value);
+    set({ azureDeploymentName: value });
+    debouncedPersistToEnv();
+  },
+  setAzureApiVersion: (value: string) => {
+    if (isBrowser) localStorage.setItem("azureApiVersion", value);
+    set({ azureApiVersion: value });
+    debouncedPersistToEnv();
+  },
+  setVertexAuthMode: (value: string) => {
+    if (isBrowser) localStorage.setItem("vertexAuthMode", value);
+    set({ vertexAuthMode: value });
+  },
+  setVertexProject: (value: string) => {
+    if (isBrowser) localStorage.setItem("vertexProject", value);
+    set({ vertexProject: value });
+    debouncedPersistToEnv();
+  },
+  setVertexLocation: (value: string) => {
+    if (isBrowser) localStorage.setItem("vertexLocation", value);
+    set({ vertexLocation: value });
+    debouncedPersistToEnv();
+  },
+  setVertexApiKey: (key: string) => {
+    if (isBrowser) localStorage.setItem("vertexApiKey", key);
+    set({ vertexApiKey: key });
+    window.electronAPI?.saveVertexApiKey?.(key);
+    debouncedPersistToEnv();
   },
 
   setDictationKey: (key: string) => {
