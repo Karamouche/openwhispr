@@ -14,6 +14,7 @@ function buildSessionConfig(options = {}) {
     channels: 1,
     endpointing: 0.3,
     maximum_duration_without_endpointing: 40,
+    pre_processing: {speech_threshold: 0.75},
     messages_config: { receive_partial_transcripts: true },
   };
   if (lang) {
