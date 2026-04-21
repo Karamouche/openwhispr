@@ -190,7 +190,8 @@
           "id": "solaria-1",
           "name": "Solaria-1",
           "description": "Real-time multilingual speech recognition",
-          "descriptionKey": "models.descriptions.transcription.gladia_solaria_1"
+          "descriptionKey": "models.descriptions.transcription.gladia_solaria_1",
+          "streaming": true
         }
       ]
     }
